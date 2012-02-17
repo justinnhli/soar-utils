@@ -6,15 +6,8 @@ from subprocess import call, check_output, CalledProcessError, STDOUT
 import re
 import sys
 
-if "DYLD_LIBRARY_PATH" in env:
-	LIB_PATH = env["DYLD_LIBRARY_PATH"]
-elif "LD_LIBRARY_PATH" in env:
-	LIB_PATH = env["LD_LIBRARY_PATH"]
-else:
-	print("Soar LIBRARY_PATH environment variable not set; quitting")
-	exit(1)
-sys.path.append(LIB_PATH)
 import Python_sml_ClientInterface as sml
+from state2dot import state2dot
 
 # low level Soar functions
 
@@ -36,11 +29,15 @@ def create_agent(kernel, name):
 
 def cli(agent):
 	agent.RegisterForPrintEvent(sml.smlEVENT_PRINT, callback_print_message, None)
-	cmd = raw_input("soar> ")
-	while cmd not in ("exit", "quit"):
-		if cmd:
-			print(agent.ExecuteCommandLine(cmd).strip())
-		cmd = raw_input("soar> ")
+	command = raw_input("soar> ")
+	while command not in ("exit", "quit"):
+		if command:
+			cmd = command.strip().split()[0]
+			if cmd in COMMANDS:
+				print(COMMANDS[cmd](command))
+			else:
+				print(agent.ExecuteCommandLine(command).strip())
+		command = raw_input("soar> ")
 
 def parameterize_commands(param_map, commands):
 	return [cmd.format(**param_map) for cmd in commands]
@@ -135,28 +132,30 @@ def max_decision_time(param_map, domain, agent):
 	result = re.sub(".*  Time \(sec\) *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats -M"), flags=re.DOTALL)
 	return ("max_dc_msec", float(result) * 1000)
 
-"""
-stats
-39952 decisions (1.172 msec/decision)
-309943 elaboration cycles (7.758 ec's per dc, 0.151 msec/ec)
-309943 inner elaboration cycles
-136794 p-elaboration cycles (3.424 pe's per dc, 0.342 msec/pe)
-391783 production firings (1.264 pf's per ec, 0.120 msec/pf)
-3174729 wme changes (1587424 additions, 1587305 removals)
-WM size: 119 current, 1497.991 mean, 18978 maximum
-"""
+# new commands
 
-"""
-stats -M
-Single decision cycle maximums:
-Stat             Value       Cycle
----------------- ----------- -----------
-      Time (sec)   0.050799       11634
-EpMem Time (sec)   0.000000           0
- SMem Time (sec)   0.000000           0
-      WM changes      19096       11634
-    Firing count        792       11634
-"""
+def command_viz(command):
+	command = command.strip()
+	path = re.search("(--path|-p)\s+([^ ]+)", command)
+	if path:
+		command = re.sub("\s+(--path|-p)\s+([^ ]+)", "", command)
+	if command == "viz":
+		args = "--depth 1000 <s>"
+	else:
+		args = command[4:]
+	dot = state2dot(agent.ExecuteCommandLine("print " + args))
+	if path:
+		path = path.group(2)
+		with open(path, "w") as fd:
+			fd.write(dot)
+			fsync(fd)
+			return "state graph writted to {}".format(path)
+		return "an unknown error occured trying to write to {}".format(path)
+	return dot
+
+COMMANDS = {
+		"viz":command_viz,
+		}
 
 # soar code management
 

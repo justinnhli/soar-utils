@@ -169,7 +169,6 @@ def make_branch(branch):
 if __name__ == "__main__":
 	kernel = create_kernel()
 	agent = create_agent(kernel, "agent")
-	register_print_callback(kernel, agent, callback_print_message, None)
 	for source in sys.argv[1:]:
 		print(agent.ExecuteCommandLine("source " + source))
 	cli(agent)

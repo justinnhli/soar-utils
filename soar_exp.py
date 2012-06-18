@@ -132,6 +132,10 @@ def max_decision_time(param_map, domain, agent):
 	result = re.sub(".*  Time \(sec\) *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats -M"), flags=re.DOTALL)
 	return ("max_dc_msec", float(result) * 1000)
 
+def kernel_cpu_time(param_map, domain, agent):
+	result = re.sub(".*Kernel CPU Time: *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
+	return ("kernel_cpu_msec", float(result) * 1000)
+
 # new commands
 
 def command_viz(command):

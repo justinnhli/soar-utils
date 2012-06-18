@@ -120,8 +120,8 @@ def report_data_wrapper(param_map, domain, reporters, condition=None):
 
 # common reporters
 
-def branch_name(param_map, domain, agent):
-	result = re.sub(".*/", "", check_output(("ls", "-l", "{}/SoarSuite".format(env["HOME"])))[:-2]).strip()
+def computed_branch_name(param_map, domain, agent):
+	result = re.sub(".*/", "", check_output(("ls", "-l", "{}/SoarSuite".format(env["HOME"])))[:-1]).strip()
 	return ("branch", result)
 
 def avg_decision_time(param_map, domain, agent):

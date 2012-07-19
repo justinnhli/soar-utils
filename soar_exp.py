@@ -124,6 +124,10 @@ def computed_branch_name(param_map, domain, agent):
 	result = re.sub(".*/", "", check_output(("ls", "-l", "{}/SoarSuite".format(env["HOME"])))[:-1]).strip()
 	return ("computed_branch", result)
 
+def num_decisions(param_map, domain, agent):
+	result = re.sub("^([^ ]*) decisions.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
+	return ("num_decisions", result)
+
 def avg_decision_time(param_map, domain, agent):
 	result = re.sub(".*\((.*) msec/decision.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
 	return ("avg_dc_msec", result)

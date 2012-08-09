@@ -19,12 +19,12 @@ def state2dot(state):
 		if re.match("\([0-9]+:", line):
 			# first, extract other stuff
 			iid = re.sub("^\(([0-9]+):.*", r'\1', line)
-			flags = re.sub(".*((\[[0-9.]+\])( :[0-9A-Za-z-]*)+)\)", r'\1', line).split()
+			flags = re.sub(".*(\[[0-9.]+\])(( \+)?)(( :[0-9A-Za-z-]*)*)\)$", r'\1\4', line).split()
 			wma = flags[0][1:-1]
 			flags = flags[1:]
 			# then return the line to as if it wasn't -i/--internal
 			line = re.sub("^\(([0-9]+): ", "(", line)
-			line = re.sub(" \[.*?$", ")", line)
+			line = re.sub(" \[[0-9.]*\](( \+)?).*?$", r'\1)', line)
 		else:
 			iid = ""
 			flags= []

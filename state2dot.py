@@ -30,10 +30,7 @@ def state2dot(state):
 			flags= []
 			wma = ""
 		# all that's left is the actual (<id> ^attr val)
-		ident =  re.sub("^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", r'\1', line)
-		attr =   re.sub("^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", r'\2', line)
-		value =  re.sub("^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", r'\3', line)
-		accept = re.sub("^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", r'\4', line)
+		ident, attr, value, accept = re.match("^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", line).groups()[0:4]
 		if value.startswith("@"):
 			lines.add('"' + value + '" [shape="doublecircle"]')
 		elif not re.match("^[A-Z][0-9]+$", value):

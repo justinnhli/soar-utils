@@ -37,7 +37,10 @@ def state2dot(state):
 			lines.add('"temp' + str(count) + '" [label="' + value + '", shape="box"]')
 			count += 1
 			value = "temp{}".format(count - 1)
-		lines.add('"{}" -> "{}" [label="{}{}\\n[{}]"]'.format(ident, value, attr, accept, wma))
+		if wma:
+			lines.add('"{}" -> "{}" [label="{}{}\\n[{}]"]'.format(ident, value, attr, accept, wma))
+		else:
+			lines.add('"{}" -> "{}" [label="{}{}"]'.format(ident, value, attr, accept))
 	result = ["digraph {"]
 	result.append('	node [shape="circle"];')
 	result.append("	" + ";\n	".join(lines) + ";")

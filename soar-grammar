@@ -15,18 +15,23 @@ TclCommand                      = "clog"
                                 | "echo"
                                 | "epmem"
                                 | "excise"
+                                | "indifferent-selection"
+                                | "indif"
+                                | "inds"
                                 | "learn"
                                 | "max-elaborations"
-                                | "multi-Attributes"
+                                | "multi-attributes"
                                 | "rete-net"
                                 | "rl"
-								| "run"
+                                | "run"
                                 | "save-backtraces"
                                 | "smem"
                                 | "timers"
+                                | "wait"
                                 | "warnings"
                                 | "watch"
-                                | "wma";
+                                | "wma"
+                                | "w";
 File                            = ( DirPath )* Filename;
 DirPath                         = ( DirChar )+ "/";
 DirChar                         = alnum

@@ -43,7 +43,7 @@ def parameterize_commands(param_map, commands):
 	return [cmd.format(**param_map) for cmd in commands]
 
 def run_parameterized_commands(agent, param_map, commands):
-    for cmd in parameterize_commands(param_map, commands):
+	for cmd in parameterize_commands(param_map, commands):
 		result = agent.ExecuteCommandLine(cmd)
 
 def param_permutations(params):

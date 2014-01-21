@@ -1,11 +1,18 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
+from imp import load_module
 from itertools import product
 from os import environ as env, fsync
+from os.path import exists, join
 from subprocess import call, check_output, CalledProcessError, STDOUT
+import inspect
 import re
 import sys
 
+# dynamically find the Soar trunk
+module_path = [p + "/Python_sml_ClientInterface.py" for p in sys.path if exists(join(p, "Python_sml_ClientInterface.py")) and "trunk" in p][0]
+with open(module_path) as fd:
+	module = load_module("Python_sml_ClientInterface", fd, module_path, ('.py', 'U', 1))
 import Python_sml_ClientInterface as sml
 from state2dot import state2dot
 
@@ -120,9 +127,8 @@ def report_data_wrapper(param_map, domain, reporters, condition=None):
 
 # common reporters
 
-def computed_branch_name(param_map, domain, agent):
-	result = re.sub(".*/", "", check_output(("ls", "-l", "{}/SoarSuite".format(env["HOME"])))[:-1]).strip()
-	return ("computed_branch", result)
+def soar_path(param_map, domain, agent):
+	return ("computed_branch", inspect.getfile(sml))
 
 def num_decisions(param_map, domain, agent):
 	result = re.sub("^([^ ]*) decisions.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)

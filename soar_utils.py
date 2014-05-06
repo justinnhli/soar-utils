@@ -62,7 +62,12 @@ class Agent:
     def get_input_link(self):
         return self.get_identifier(self.agent.GetInputLink())
     def get_output_link(self):
-        return self.get_identifier(self.agent.GetOutputLink())
+        # this can be None if the agent has not put anything on the output link ever
+        ol = self.agent.GetOutputLink()
+        if ol:
+            return self.get_identifier(ol)
+        else:
+            return None
     def create_wme(self, identifier, attribute, value):
         assert isinstance(identifier, Agent.Identifier)
         assert isinstance(attribute, str)
@@ -139,16 +144,12 @@ class SoarEnvironment:
         self.agent = agent
         self.wmes = {}
         self.prev_state = None
-        self.initialize()
-    def initialize(self):
         self.agent.register_for_run_event(sml.smlEVENT_AFTER_OUTPUT_PHASE, SoarEnvironment.update, self)
     def update_io(self, mid, user_data, agent, message):
         raise NotImplementedError()
     def del_wme(self, parent, attr, child):
-        print(self.wmes)
         if (parent not in self.wmes) or (attr not in self.wmes[parent]) or (child not in self.wmes[parent][attr]):
             return False
-        print(self.wmes[parent][attr][child])
         self.agent.destroy_wme(self.wmes[parent][attr][child])
         del self.wmes[parent][attr][child]
         if len(self.wmes[parent][attr]) == 0:
@@ -167,22 +168,27 @@ class SoarEnvironment:
         commands = {}
         wmes = {}
         output_link = self.agent.get_output_link()
-        for command in output_link.children():
-            command_name = command.get_attribute()
-            commands[command_name] = {}
-            wmes[command_name] = command
-            for parameter in command.get_value().children():
-                commands[command_name][parameter.get_attribute()] = parameter.get_value()
+        if output_link is not None:
+            for command in output_link.children():
+                command_name = command.get_attribute()
+                commands[command_name] = {}
+                wmes[command_name] = command
+                for parameter in command.get_value().children():
+                    commands[command_name][parameter.get_attribute()] = parameter.get_value()
         return commands, wmes
     @staticmethod
     def update(mid, user_data, agent, message):
         user_data.update_io(mid, user_data, Agent(agent), message)
+        agent.Commit()
 
 class Ticker(SoarEnvironment):
     def __init__(self, agent):
         super().__init__(agent)
         self.time = 0
     def update_io(self, mid, user_data, agent, message):
+        commands, wmes = self.parse_output_commands()
+        if "print" in commands and "message" in commands["print"]:
+            print(commands["print"]["message"])
         self.parse_output_commands()
         self.del_wme(agent.get_input_link(), "time", self.time)
         self.time += 1
@@ -246,7 +252,7 @@ def make_branch(branch):
 
 if __name__ == "__main__":
     agent = create_kernel_in_current_thread().create_agent("text")
-    agent.execute_command_line("sp {temp (state <s> ^superstate nil ^io.output-link <ol>) --> (<ol> ^command.param value) }")
-    agent.execute_command_line("sp {halt (state <s> ^io.input-link <il>) (<il> ^time 1 ^time 2) --> (write (crlf) |FAIL| (crlf)) (halt)}")
+    print(agent.execute_command_line("sp {print (state <s> ^superstate nil ^io <io>) (<io> ^output-link <ol> ^input-link.time <time>) --> (<ol> ^print.message <time>)}"))
+    print(agent.execute_command_line("sp {halt (state <s> ^io.input-link <il>) (<il> ^time <t1> ^time {<t2> <> <t1>}) --> (write (crlf) |FAIL| (crlf)) (halt)}"))
     environment = Ticker(agent)
     cli(agent)

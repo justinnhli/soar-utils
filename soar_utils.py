@@ -16,35 +16,109 @@ with open(module_path) as fd:
 import Python_sml_ClientInterface as sml
 from state2dot import state2dot
 
-# low level Soar functions
+# SML wrappers
 
-def create_kernel():
+class Agent:
+    class Identifier:
+        def __init__(self, agent, identifier):
+            self.agent = agent
+            self.identifier = identifier
+        def children(self):
+            for index in range(self.identifier.GetNumberChildren()):
+                yield self.agent.get_wme(self.identifier.GetChild(index))
+        def __eq__(self, other):
+            return isinstance(other, Agent.Identifier) and hash(self) == hash(other)
+        def __hash__(self):
+            return self.identifier.GetTimeTag()
+    class WME:
+        def __init__(self, agent, wme):
+            self.agent = agent
+            self.wme = wme
+            self.value_type = self.wme.GetValueType()
+        def get_identifier(self):
+            return self.agent.get_identifier(self.wme.GetIdentifier())
+        def get_attribute(self):
+            return str(self.wme.GetAttribute())
+        def get_value(self):
+            if self.value_type == "int":
+                return int(self.wme.ConvertToIntElement().GetValue())
+            elif self.value_type == "float":
+                return float(self.wme.ConvertToFloatElement().GetValue())
+            elif self.value_type == "string":
+                return str(self.wme.ConvertToStringElement().GetValue())
+            else:
+                return self.agent.get_identifier(self.wme.ConvertToIdentifier())
+    def __init__(self, agent):
+        self.agent = agent
+        self.identifiers = {}
+    def get_name(self):
+        return str(self.agent.GetAgentName())
+    def get_identifier(self, identifier):
+        if identifier.GetTimeTag() not in self.identifiers:
+            self.identifiers[identifier.GetTimeTag()] = Agent.Identifier(self, identifier)
+        return self.identifiers[identifier.GetTimeTag()]
+    def get_wme(self, wme):
+        return Agent.WME(self, wme)
+    def get_input_link(self):
+        return self.get_identifier(self.agent.GetInputLink())
+    def get_output_link(self):
+        return self.get_identifier(self.agent.GetOutputLink())
+    def create_wme(self, identifier, attribute, value):
+        assert isinstance(identifier, Agent.Identifier)
+        assert isinstance(attribute, str)
+        if isinstance(value, int):
+            return self.get_wme(self.agent.CreateIntWME(identifier.identifier, attribute, value))
+        elif isinstance(value, float):
+            return self.get_wme(self.agent.CreateFloatWME(identifier.identifier, attribute, value))
+        elif isinstance(value, str):
+            return self.get_wme(self.agent.CreateStringWME(identifier.identifier, attribute, value))
+        elif isinstance(value, Agent.Identifier):
+            return self.get_wme(self.agent.CreateIdWME(identifier.identifier, attribute, value))
+        else:
+            raise TypeError()
+    def destroy_wme(self, wme):
+        assert isinstance(wme, Agent.WME)
+        return bool(self.agent.DestroyWME(wme.wme))
+    def execute_command_line(self, command):
+        return str(self.agent.ExecuteCommandLine(command))
+    def register_for_run_event(self, event, function, user_data):
+        return int(self.agent.RegisterForRunEvent(event, function, user_data))
+    def unregister_for_run_event(self, event_id):
+        return bool(self.agent.UnregisterForRunEvent(event_id))
+    def register_for_print_event(self, event, function, user_data):
+        return int(self.agent.RegisterForPrintEvent(event, function, user_data))
+    def unregister_for_print_event(self, event_id):
+        return bool(self.agent.UnregisterForPrintEvent(event_id))
+
+class Kernel:
+    def __init__(self, kernel):
+        self.kernel = kernel
+    def create_agent(self, name):
+        agent = self.kernel.CreateAgent(name)
+        if agent is None:
+            raise RuntimeError("Error creating agent: " + self.kernel.GetLastErrorDescription())
+        return Agent(agent)
+    def destroy_agent(self, agent):
+        return self.kernel.DestroyAgent(agent)
+    def shutdown(self):
+        return self.kernel.Shutdown()
+
+def create_kernel_in_current_thread():
     kernel = sml.Kernel.CreateKernelInCurrentThread()
-    if not kernel or kernel.HadError():
-        print("Error creating kernel: " + kernel.GetLastErrorDescription())
-        exit(1)
-    return kernel
-
-def create_agent(kernel, name):
-    agent = kernel.CreateAgent("agent")
-    if not agent:
-        print("Error creating agent: " + kernel.GetLastErrorDescription())
-        exit(1)
-    return agent
+    if kernel is None or kernel.HadError():
+        raise RuntimeError("Error creating kernel: " + kernel.GetLastErrorDescription())
+    return Kernel(kernel)
 
 # mid-level framework
 
 def cli(agent):
-    agent.RegisterForPrintEvent(sml.smlEVENT_PRINT, callback_print_message, None)
-    command = raw_input("soar> ")
+    agent.register_for_print_event(sml.smlEVENT_PRINT, callback_print_message, None)
+    command = input("soar> ")
     while command not in ("exit", "quit"):
         if command:
             cmd = command.strip().split()[0]
-            if cmd in COMMANDS:
-                print(COMMANDS[cmd](command))
-            else:
-                print(agent.ExecuteCommandLine(command).strip())
-        command = raw_input("soar> ")
+            print(agent.execute_command_line(command).strip())
+        command = input("soar> ")
 
 def parameterize_commands(param_map, commands):
     return [cmd.format(**param_map) for cmd in commands]
@@ -58,46 +132,61 @@ def param_permutations(params):
     for values in product(*(params[key] for key in keys)):
         yield dict(zip(keys, values))
 
-# IO
+# environment template and example
 
-def parse_output_commands(agent, structure):
-    commands = {}
-    mapping = {}
-    for cmd in range(0, agent.GetNumberCommands()):
-        error = False
-        command = agent.GetCommand(cmd)
-        cmd_name = command.GetCommandName()
-        if cmd_name in structure:
-            parameters = {}
-            for param_name in structure[cmd_name]:
-                param_value = command.GetParameterValue(param_name)
-                if param_value:
-                    parameters[param_name] = param_value
-            if not error:
-                commands[cmd_name] = parameters
-                mapping[cmd_name] = command
-        else:
-            error = True
-        if error:
-            command.AddStatusError()
-    return commands, mapping
+class SoarEnvironment:
+    def __init__(self, agent):
+        self.agent = agent
+        self.wmes = {}
+        self.prev_state = None
+        self.initialize()
+    def initialize(self):
+        self.agent.register_for_run_event(sml.smlEVENT_AFTER_OUTPUT_PHASE, SoarEnvironment.update, self)
+    def update_io(self, mid, user_data, agent, message):
+        raise NotImplementedError()
+    def del_wme(self, parent, attr, child):
+        print(self.wmes)
+        if (parent not in self.wmes) or (attr not in self.wmes[parent]) or (child not in self.wmes[parent][attr]):
+            return False
+        print(self.wmes[parent][attr][child])
+        self.agent.destroy_wme(self.wmes[parent][attr][child])
+        del self.wmes[parent][attr][child]
+        if len(self.wmes[parent][attr]) == 0:
+            del self.wmes[parent][attr]
+        if len(self.wmes[parent]) == 0:
+            del self.wmes[parent]
+        return True
+    def add_wme(self, parent, attr, child):
+        if parent not in self.wmes:
+            self.wmes[parent] = {}
+        if attr not in self.wmes[parent]:
+            self.wmes[parent][attr] = {}
+        self.wmes[parent][attr][child] = self.agent.create_wme(parent, attr, child)
+        return self.wmes[parent][attr][child]
+    def parse_output_commands(self):
+        commands = {}
+        wmes = {}
+        output_link = self.agent.get_output_link()
+        for command in output_link.children():
+            command_name = command.get_attribute()
+            commands[command_name] = {}
+            wmes[command_name] = command
+            for parameter in command.get_value().children():
+                commands[command_name][parameter.get_attribute()] = parameter.get_value()
+        return commands, wmes
+    @staticmethod
+    def update(mid, user_data, agent, message):
+        user_data.update_io(mid, user_data, Agent(agent), message)
 
-def dot_to_input(edges):
-    pass
-
-# callback registry
-
-def register_print_callback(kernel, agent, function, user_data=None):
-    agent.RegisterForPrintEvent(sml.smlEVENT_PRINT, function, user_data)
-
-def register_output_callback(kernel, agent, function, user_data=None):
-    agent.RegisterForRunEvent(sml.smlEVENT_AFTER_OUTPUT_PHASE, function, user_data)
-
-def register_output_change_callback(kernel, agent, function, user_data=None):
-    kernel.RegisterForUpdateEvent(sml.smlEVENT_AFTER_ALL_GENERATED_OUTPUT, function, user_data)
-
-def register_destruction_callback(kernel, agent, function, user_data=None):
-    agent.RegisterForRunEvent(sml.smlEVENT_AFTER_HALTED, function, user_data)
+class Ticker(SoarEnvironment):
+    def __init__(self, agent):
+        super().__init__(agent)
+        self.time = 0
+    def update_io(self, mid, user_data, agent, message):
+        self.parse_output_commands()
+        self.del_wme(agent.get_input_link(), "time", self.time)
+        self.time += 1
+        self.add_wme(agent.get_input_link(), "time", self.time)
 
 # callback functions
 
@@ -146,31 +235,6 @@ def kernel_cpu_time(param_map, domain, agent):
     result = re.sub(".*Kernel CPU Time: *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
     return ("kernel_cpu_msec", float(result) * 1000)
 
-# new commands
-
-def command_viz(command):
-    command = command.strip()
-    path = re.search("(--path|-p)\s+([^ ]+)", command)
-    if path:
-        command = re.sub("\s+(--path|-p)\s+([^ ]+)", "", command)
-    if command == "viz":
-        args = "--depth 1000 <s>"
-    else:
-        args = command[4:]
-    dot = state2dot(agent.ExecuteCommandLine("print " + args))
-    if path:
-        path = path.group(2)
-        with open(path, "w") as fd:
-            fd.write(dot)
-            fsync(fd)
-            return "state graph writted to {}".format(path)
-        return "an unknown error occured trying to write to {}".format(path)
-    return dot
-
-COMMANDS = {
-    "viz": command_viz,
-}
-
 # soar code management
 
 def make_branch(branch):
@@ -181,11 +245,8 @@ def make_branch(branch):
         return False
 
 if __name__ == "__main__":
-    kernel = create_kernel()
-    agent = create_agent(kernel, "agent")
-    for source in sys.argv[1:]:
-        print(agent.ExecuteCommandLine("source " + source))
+    agent = create_kernel_in_current_thread().create_agent("text")
+    agent.execute_command_line("sp {temp (state <s> ^superstate nil ^io.output-link <ol>) --> (<ol> ^command.param value) }")
+    agent.execute_command_line("sp {halt (state <s> ^io.input-link <il>) (<il> ^time 1 ^time 2) --> (write (crlf) |FAIL| (crlf)) (halt)}")
+    environment = Ticker(agent)
     cli(agent)
-    kernel.DestroyAgent(agent)
-    kernel.Shutdown()
-    del kernel

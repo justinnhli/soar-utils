@@ -278,7 +278,49 @@ def make_branch(branch):
 
 if __name__ == "__main__":
     agent = create_kernel_in_current_thread().create_agent("text")
-    print(agent.execute_command_line("sp {print (state <s> ^superstate nil ^io <io>) (<io> ^output-link <ol> ^input-link.time <time>) --> (<ol> ^print.message <time>)}"))
-    print(agent.execute_command_line("sp {halt (state <s> ^io.input-link <il>) (<il> ^time <t1> ^time {<t2> <> <t1>}) --> (write (crlf) |FAIL| (crlf)) (halt)}"))
+    print(agent.execute_command_line("""
+        sp {propose*init-agent
+            (state <s> ^superstate nil
+                      -^name)
+        -->
+            (<s> ^operator.name init-agent)
+        }
+        sp {apply*init-agent
+            (state <s> ^operator.name init-agent)
+        -->
+            (<s> ^name ticker)
+        }
+        sp {ticker*propose*print
+            (state <s> ^name ticker
+                       ^io.input-link.time <time>)
+        -->
+            (<s> ^operator.name print)
+        }
+        sp {ticker*apply*print
+            (state <s> ^name ticker
+                       ^operator.name print
+                       ^io <io>)
+            (<io> ^input-link.time <time>
+                  ^output-link <ol>)
+        -->
+            (<ol> ^print.message <time>)
+        }
+        sp {ticker*apply*all*remove-completed
+            (state <s> ^operator.name
+                       ^io.output-link <ol>)
+            (<ol> ^<command> <cmd>)
+            (<cmd> ^status complete)
+        -->
+            (<ol> ^<command> <cmd> -)
+        }
+        sp {ticker*fail
+            (state <s> ^io.input-link <il>)
+            (<il> ^time <t1>
+                  ^time {<t2> <> <t1>})
+        -->
+            (write (crlf) |FAIL| (crlf))
+            (halt)
+        }
+    """))
     environment = Ticker(agent)
     cli(agent)

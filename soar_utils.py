@@ -2,9 +2,8 @@
 
 from imp import load_module
 from itertools import product
-from os import environ as env, fsync
 from os.path import exists, join
-from subprocess import call, check_output, CalledProcessError, STDOUT
+from subprocess import check_output, CalledProcessError, STDOUT
 import inspect
 import re
 import sys
@@ -20,26 +19,38 @@ from state2dot import state2dot
 
 class Agent:
     class Identifier:
-        def __init__(self, agent, identifier):
+        def __init__(self, agent, wme):
+            assert isinstance(wme, sml.Identifier)
             self.agent = agent
-            self.identifier = identifier
-        def children(self):
-            for index in range(self.identifier.GetNumberChildren()):
-                yield self.agent.get_wme(self.identifier.GetChild(index))
+            self.wme = wme
         def __eq__(self, other):
             return isinstance(other, Agent.Identifier) and hash(self) == hash(other)
         def __hash__(self):
-            return self.identifier.GetTimeTag()
+            return self.time_tag
+        @property
+        def time_tag(self):
+            return self.wme.GetTimeTag()
+        def children(self):
+            for index in range(self.wme.GetNumberChildren()):
+                yield self.agent._get_wme(self.wme.GetChild(index))
+        def add_child(self, attribute, value):
+            self.agent.create_wme(self, attribute, value)
     class WME:
         def __init__(self, agent, wme):
+            assert isinstance(wme, sml.WMElement)
             self.agent = agent
             self.wme = wme
-            self.value_type = self.wme.GetValueType()
-        def get_identifier(self):
-            return self.agent.get_identifier(self.wme.GetIdentifier())
-        def get_attribute(self):
+        @property
+        def identifier(self):
+            return self.agent._get_identifier(self.wme.ConvertToIdentifier())
+        @property
+        def attribute(self):
             return str(self.wme.GetAttribute())
-        def get_value(self):
+        @property
+        def value_type(self):
+            return self.wme.GetValueType()
+        @property
+        def value(self):
             if self.value_type == "int":
                 return int(self.wme.ConvertToIntElement().GetValue())
             elif self.value_type == "float":
@@ -47,38 +58,43 @@ class Agent:
             elif self.value_type == "string":
                 return str(self.wme.ConvertToStringElement().GetValue())
             else:
-                return self.agent.get_identifier(self.wme.ConvertToIdentifier())
+                return self.agent._get_identifier(self.wme.ConvertToIdentifier())
     def __init__(self, agent):
         self.agent = agent
         self.identifiers = {}
-    def get_name(self):
+    @property
+    def name(self):
         return str(self.agent.GetAgentName())
-    def get_identifier(self, identifier):
-        if identifier.GetTimeTag() not in self.identifiers:
-            self.identifiers[identifier.GetTimeTag()] = Agent.Identifier(self, identifier)
-        return self.identifiers[identifier.GetTimeTag()]
-    def get_wme(self, wme):
-        return Agent.WME(self, wme)
-    def get_input_link(self):
-        return self.get_identifier(self.agent.GetInputLink())
-    def get_output_link(self):
+    @property
+    def input_link(self):
+        return self._get_identifier(self.agent.GetInputLink())
+    @property
+    def output_link(self):
         # this can be None if the agent has not put anything on the output link ever
         ol = self.agent.GetOutputLink()
         if ol:
-            return self.get_identifier(ol)
+            return self._get_identifier(ol)
         else:
             return None
+    def _get_identifier(self, identifier):
+        assert isinstance(identifier, sml.Identifier)
+        if identifier.GetTimeTag() not in self.identifiers:
+            self.identifiers[identifier.GetTimeTag()] = Agent.Identifier(self, identifier)
+        return self.identifiers[identifier.GetTimeTag()]
+    def _get_wme(self, wme):
+        assert isinstance(wme, sml.WMElement)
+        return Agent.WME(self, wme)
     def create_wme(self, identifier, attribute, value):
         assert isinstance(identifier, Agent.Identifier)
         assert isinstance(attribute, str)
         if isinstance(value, int):
-            return self.get_wme(self.agent.CreateIntWME(identifier.identifier, attribute, value))
+            return self._get_wme(self.agent.CreateIntWME(identifier.wme, attribute, value))
         elif isinstance(value, float):
-            return self.get_wme(self.agent.CreateFloatWME(identifier.identifier, attribute, value))
+            return self._get_wme(self.agent.CreateFloatWME(identifier.wme, attribute, value))
         elif isinstance(value, str):
-            return self.get_wme(self.agent.CreateStringWME(identifier.identifier, attribute, value))
+            return self._get_wme(self.agent.CreateStringWME(identifier.wme, attribute, value))
         elif isinstance(value, Agent.Identifier):
-            return self.get_wme(self.agent.CreateIdWME(identifier.identifier, attribute, value))
+            return self._get_wme(self.agent.CreateIdWME(identifier.wme, attribute, value))
         else:
             raise TypeError()
     def destroy_wme(self, wme):

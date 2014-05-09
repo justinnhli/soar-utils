@@ -137,7 +137,6 @@ def cli(agent):
     command = input("soar> ")
     while command not in ("exit", "quit"):
         if command:
-            cmd = command.strip().split()[0]
             print(agent.execute_command_line(command).strip())
         command = input("soar> ")
 
@@ -156,10 +155,21 @@ def param_permutations(params):
 # environment template and example
 
 class SoarEnvironment:
+    class Command:
+        def __init__(self, wme):
+            assert isinstance(wme, Agent.WME)
+            self.wme = wme
+            self.name = self.wme.attribute
+            self.params = {}
+            for parameter in self.wme.value.children():
+                self.params[parameter.attribute] = parameter.value
+        def add_status(self, status):
+            self.wme.value.add_child("status", status)
     def __init__(self, agent):
         self.agent = agent
         self.wmes = {}
         self.prev_state = None
+        self.processed_commands = set()
         self.agent.register_for_run_event(sml.smlEVENT_AFTER_OUTPUT_PHASE, SoarEnvironment.update, self)
     def update_io(self, mid, user_data, agent, message):
         raise NotImplementedError()
@@ -181,17 +191,14 @@ class SoarEnvironment:
         self.wmes[parent][attr][child] = self.agent.create_wme(parent, attr, child)
         return self.wmes[parent][attr][child]
     def parse_output_commands(self):
-        commands = {}
-        wmes = {}
-        output_link = self.agent.get_output_link()
+        commands = set()
+        output_link = self.agent.output_link
         if output_link is not None:
-            for command in output_link.children():
-                command_name = command.get_attribute()
-                commands[command_name] = {}
-                wmes[command_name] = command
-                for parameter in command.get_value().children():
-                    commands[command_name][parameter.get_attribute()] = parameter.get_value()
-        return commands, wmes
+            for command_wme in output_link.children():
+                if command_wme.identifier.time_tag not in self.processed_commands:
+                    commands.add(SoarEnvironment.Command(command_wme))
+                    self.processed_commands.add(command_wme.identifier.time_tag)
+        return commands
     @staticmethod
     def update(mid, user_data, agent, message):
         user_data.update_io(mid, user_data, Agent(agent), message)
@@ -202,13 +209,16 @@ class Ticker(SoarEnvironment):
         super().__init__(agent)
         self.time = 0
     def update_io(self, mid, user_data, agent, message):
-        commands, wmes = self.parse_output_commands()
-        if "print" in commands and "message" in commands["print"]:
-            print(commands["print"]["message"])
-        self.parse_output_commands()
-        self.del_wme(agent.get_input_link(), "time", self.time)
+        commands = self.parse_output_commands()
+        for command in commands:
+            if command.name == "print" and "message" in command.params:
+                print(command.params["message"])
+                command.add_status("complete")
+            else:
+                command.add_status("error")
+        self.del_wme(agent.input_link, "time", self.time)
         self.time += 1
-        self.add_wme(agent.get_input_link(), "time", self.time)
+        self.add_wme(agent.input_link, "time", self.time)
 
 # callback functions
 

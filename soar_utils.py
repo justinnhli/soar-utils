@@ -94,7 +94,9 @@ class Agent:
         elif isinstance(value, str):
             return self._get_wme(self.agent.CreateStringWME(identifier.wme, attribute, value))
         elif isinstance(value, Agent.Identifier):
-            return self._get_wme(self.agent.CreateIdWME(identifier.wme, attribute, value))
+            return self._get_wme(self.agent.CreateSharedIdWME(identifier.wme, attribute, value))
+        elif value is None:
+            return self._get_wme(self.agent.CreateIdWME(identifier.wme, attribute))
         else:
             raise TypeError()
     def destroy_wme(self, wme):
@@ -197,13 +199,20 @@ class SoarEnvironment:
         if len(self.wmes[parent]) == 0:
             del self.wmes[parent]
         return True
-    def add_wme(self, parent, attr, child):
+    def add_wme(self, parent, attr, child=None):
         if parent not in self.wmes:
             self.wmes[parent] = {}
         if attr not in self.wmes[parent]:
             self.wmes[parent][attr] = {}
-        self.wmes[parent][attr][child] = self.agent.create_wme(parent, attr, child)
-        return self.wmes[parent][attr][child]
+        new_wme = None
+        if child is None:
+            self.wmes[parent][attr][child] = set()
+            new_wme = self.agent.create_wme(parent, attr, child)
+            self.wmes[parent][attr][child].add(new_wme)
+        else:
+            new_wme = self.agent.create_wme(parent, attr, child)
+            self.wmes[parent][attr][child] = new_wme
+        return new_wme
     def parse_output_commands(self):
         commands = set()
         output_link = self.agent.output_link

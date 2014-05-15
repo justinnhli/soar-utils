@@ -150,7 +150,21 @@ def run_parameterized_commands(agent, param_map, commands):
 def param_permutations(params):
     keys = sorted(params.keys())
     for values in product(*(params[key] for key in keys)):
-        yield dict(zip(keys, values))
+        original = dict(zip(keys, values))
+        modified = {}
+        changed = True
+        while changed:
+            changed = False
+            for k, v in original.items():
+                if isinstance(v, str):
+                    replaced_v = v.format(**original)
+                    if replaced_v != v:
+                        changed = True
+                    modified[k] = replaced_v
+                else:
+                    modified[k] = v
+            original, modified = modified, {}
+        yield original
 
 # environment template and example
 

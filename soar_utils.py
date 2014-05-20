@@ -48,14 +48,28 @@ class Agent:
             return str(self.wme.GetAttribute())
         @property
         def value_type(self):
-            return self.wme.GetValueType()
+            value_type = self.wme.GetValueType()
+            if value_type == "int":
+                return int
+            elif value_type == "float":
+                return float
+            elif value_type == "string":
+                value = self.wme.ConvertToStringElement().GetValue()
+                if value in ("true", "false"):
+                    return bool
+                else:
+                    return str
+            else:
+                return Agent.Identifier
         @property
         def value(self):
-            if self.value_type == "int":
+            if self.value_type == bool:
+                return (False if str(self.wme.ConvertToStringElement().GetValue()) == "false" else True)
+            elif self.value_type == int:
                 return int(self.wme.ConvertToIntElement().GetValue())
-            elif self.value_type == "float":
+            elif self.value_type == float:
                 return float(self.wme.ConvertToFloatElement().GetValue())
-            elif self.value_type == "string":
+            elif self.value_type == string:
                 return str(self.wme.ConvertToStringElement().GetValue())
             else:
                 return self.agent._get_identifier(self.wme.ConvertToIdentifier())

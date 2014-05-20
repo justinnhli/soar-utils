@@ -69,7 +69,7 @@ class Agent:
                 return int(self.wme.ConvertToIntElement().GetValue())
             elif self.value_type == float:
                 return float(self.wme.ConvertToFloatElement().GetValue())
-            elif self.value_type == string:
+            elif self.value_type == str:
                 return str(self.wme.ConvertToStringElement().GetValue())
             else:
                 return self.agent._get_identifier(self.wme.ConvertToIdentifier())

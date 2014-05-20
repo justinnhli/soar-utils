@@ -101,6 +101,8 @@ class Agent:
     def create_wme(self, identifier, attribute, value):
         assert isinstance(identifier, Agent.Identifier)
         assert isinstance(attribute, str)
+        if isinstance(value, bool):
+            return self._get_wme(self.agent.CreateStringWME(identifier.wme, attribute, ("true" if value else "false")))
         if isinstance(value, int):
             return self._get_wme(self.agent.CreateIntWME(identifier.wme, attribute, value))
         elif isinstance(value, float):

@@ -138,7 +138,8 @@ class Kernel:
             raise RuntimeError("Error creating agent: " + self.kernel.GetLastErrorDescription())
         return Agent(agent)
     def destroy_agent(self, agent):
-        return self.kernel.DestroyAgent(agent)
+        assert isinstance(agent, Agent)
+        return self.kernel.DestroyAgent(agent.agent)
     def shutdown(self):
         return self.kernel.Shutdown()
 

@@ -260,6 +260,11 @@ class Ticker(SoarEnvironment):
         self.time += 1
         self.add_wme(agent.input_link, "time", self.time)
 
+class ParameterizedSoarEnvironment(SoarEnvironment):
+    def __init__(self, params, agent):
+        super().__init__(agent)
+        self.params = params
+
 # callback functions
 
 def callback_print_message(mid, user_data, agent, message):

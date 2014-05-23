@@ -166,7 +166,7 @@ def run_parameterized_commands(agent, param_map, commands):
     for cmd in parameterize_commands(param_map, commands):
         result = agent.ExecuteCommandLine(cmd)
 
-def param_permutations(params):
+def parameter_permutations(params):
     keys = sorted(params.keys())
     for values in product(*(params[key] for key in keys)):
         original = dict(zip(keys, values))
@@ -193,9 +193,9 @@ class SoarEnvironment:
             assert isinstance(wme, Agent.WME)
             self.wme = wme
             self.name = self.wme.attribute
-            self.params = {}
+            self.parameters = {}
             for parameter in self.wme.value.children():
-                self.params[parameter.attribute] = parameter.value
+                self.parameters[parameter.attribute] = parameter.value
         def add_status(self, status):
             self.wme.value.add_child("status", status)
     def __init__(self, agent):
@@ -261,9 +261,35 @@ class Ticker(SoarEnvironment):
         self.add_wme(agent.input_link, "time", self.time)
 
 class ParameterizedSoarEnvironment(SoarEnvironment):
-    def __init__(self, params, agent):
+    def __init__(self, parameters, agent):
         super().__init__(agent)
-        self.params = params
+        self.parameters = parameters
+
+# experiment template and example
+
+class SoarExperiment:
+    def __init__(self, environment_class, parameter_space, commands, reporters):
+        self.environment_class = environment_class
+        self.parameter_space = parameter_space
+        self.commands = commands
+        self.reporters = reporters
+    def run(self, with_cli=False):
+        kernel = create_kernel_in_current_thread()
+        for parameters in parameter_permutations(self.parameter_space):
+            report = {}
+            report.update(parameters)
+            agent = kernel.create_agent("test")
+            environment = self.environment_class(parameters, agent)
+            for command in parameterize_commands(parameters, self.commands):
+                agent.execute_command_line(command)
+            if with_cli:
+                cli(agent)
+            else:
+                agent.execute_command_line("run")
+            for name, reporter in self.reporters.items():
+                report[name] = reporter(environment, parameters, agent)
+            kernel.destroy_agent(agent)
+            print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
 
 # callback functions
 

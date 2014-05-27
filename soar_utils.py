@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from ast import literal_eval
 from imp import load_module
 from itertools import product
 from os.path import exists, join
@@ -158,6 +159,17 @@ def cli(agent):
         if command:
             print(agent.execute_command_line(command).strip())
         command = input("soar> ")
+
+def str_to_parameters(s):
+    parameters = {}
+    for pair in s.split():
+        k, v = pair.split("=")
+        try:
+            v = literal_eval(v)
+        except SyntaxError:
+            pass
+        parameters[k] = v
+    return parameters
 
 def parameterize_commands(param_map, commands):
     return [cmd.format(**param_map) for cmd in commands]

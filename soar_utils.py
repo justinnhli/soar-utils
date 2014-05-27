@@ -274,10 +274,10 @@ class SoarExperiment:
         self.commands = commands
         self.reporters = reporters
     def run(self, with_cli=False):
-        kernel = create_kernel_in_current_thread()
         for parameters in parameter_permutations(self.parameter_space):
             report = {}
             report.update(parameters)
+            kernel = create_kernel_in_current_thread()
             agent = kernel.create_agent("test")
             environment = self.environment_class(parameters, agent)
             for command in parameterize_commands(parameters, self.commands):
@@ -289,6 +289,8 @@ class SoarExperiment:
             for name, reporter in self.reporters.items():
                 report[name] = reporter(environment, parameters, agent)
             kernel.destroy_agent(agent)
+            kernel.shutdown()
+            del kernel
             print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
 
 # callback functions

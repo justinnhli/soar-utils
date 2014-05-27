@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from ast import literal_eval
+from copy import deepcopy
 from imp import load_module
 from itertools import product
 from os.path import exists, join
@@ -280,18 +281,33 @@ class ParameterizedSoarEnvironment(SoarEnvironment):
 # experiment template and example
 
 class SoarExperiment:
-    def __init__(self, environment_class, parameter_space, commands, reporters):
+    def __init__(self, name, environment_class, parameter_space, commands, reporters):
+        self.name = name
         self.environment_class = environment_class
         self.parameter_space = parameter_space
+        self.parameter_space["experiment_name"] = (self.name,)
         self.commands = commands
         self.reporters = reporters
-    def run(self, with_cli=False):
-        for parameters in parameter_permutations(self.parameter_space):
+        self.prerun_procedures = set()
+    def register_prerun_procedure(self, f):
+        self.prerun_procedures.add(f)
+    def print_independent_variables(self):
+        for k, v in sorted(self.parameter_space.items()):
+            if len(v) > 1:
+                print("# {}: {}".format(k, v))
+    def run(self, with_cli=False, fixed_parameters=None, prerun_procedure=None):
+        parameter_space = deepcopy(self.parameter_space)
+        if fixed_parameters:
+            for k, v in fixed_parameters.items():
+                parameter_space[k] = (v,)
+        for parameters in parameter_permutations(parameter_space):
             report = {}
             report.update(parameters)
             kernel = create_kernel_in_current_thread()
             agent = kernel.create_agent("test")
             environment = self.environment_class(parameters, agent)
+            for f in self.prerun_procedures:
+                f(environment, parameters, agent)
             for command in parameterize_commands(parameters, self.commands):
                 agent.execute_command_line(command)
             if with_cli:

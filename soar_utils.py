@@ -308,11 +308,15 @@ class SoarExperiment:
             environment = self.environment_class(parameters, agent)
             for f in self.prerun_procedures:
                 f(environment, parameters, agent)
-            for command in parameterize_commands(parameters, self.commands):
-                agent.execute_command_line(command)
             if with_cli:
+                for command in parameterize_commands(parameters, self.commands):
+                    print("soar> " + command.strip())
+                    print(agent.execute_command_line(command).strip())
+                agent.execute_command_line("watch 1")
                 cli(agent)
             else:
+                for command in parameterize_commands(parameters, self.commands):
+                    agent.execute_command_line(command)
                 agent.execute_command_line("run")
             for name, reporter in self.reporters.items():
                 report[name] = reporter(environment, parameters, agent)

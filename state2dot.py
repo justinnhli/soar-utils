@@ -5,8 +5,8 @@ import re
 def state2dot(state):
     state = "\n".join(line.strip() for line in state.split("\n"))
     state = re.sub(r'\n\^', " ^", state)
-    while re.search("\([^ ]+ \^[^ ]+ (\|[^|]*\||[^| )]+)( \+)? \^", state):
-        state = re.sub("\(([^ ]+) (\^[^ ]+ (\|[^|]*\||[^| )]+)( \+)?) \^", r"(\1 \2)\n(\1 ^", state)
+    while re.search(r"\([^ ]+ \^[^ ]+ (\|[^|]*\||[^| )]+)( \+)? \^", state):
+        state = re.sub(r"\(([^ ]+) (\^[^ ]+ (\|[^|]*\||[^| )]+)( \+)?) \^", r"(\1 \2)\n(\1 ^", state)
     # at this point, everything is in (<id> ^attr val) triples... if it's not -i/--internal
     lines = set()
     count = 0
@@ -16,21 +16,19 @@ def state2dot(state):
             continue
         # if the input is from -i/--internal, need to strip a few things
         # we can recognized this by checking for an internal ID
-        if re.match("\([0-9]+:", line):
+        if re.match(r"\([0-9]+:", line):
             # first, extract other stuff
-            iid = re.sub("^\(([0-9]+):.*", r'\1', line)
-            flags = re.sub(".*(\[[0-9.]+\])(( \+)?)(( :[0-9A-Za-z-]*)*)\)$", r'\1\4', line).split()
+            flags = re.sub(r".*(\[[0-9.]+\])(( \+)?)(( :[0-9A-Za-z-]*)*)\)$", r'\1\4', line).split()
             wma = flags[0][1:-1]
             flags = flags[1:]
             # then return the line to as if it wasn't -i/--internal
-            line = re.sub("^\(([0-9]+): ", "(", line)
-            line = re.sub(" \[[0-9.]*\](( \+)?).*?$", r'\1)', line)
+            line = re.sub(r"^\(([0-9]+): ", "(", line)
+            line = re.sub(r" \[[0-9.]*\](( \+)?).*?$", r'\1)', line)
         else:
-            iid = ""
             flags = []
             wma = ""
         # all that's left is the actual (<id> ^attr val)
-        ident, attr, value, accept = re.match("^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", line).groups()[0:4]
+        ident, attr, value, accept = re.match(r"^\(([^ ]+) \^([^ ]+) (.*?)(( \+)?)\)$", line).groups()[0:4]
         if value.startswith("@"):
             lines.add('"' + value + '" [shape="doublecircle"]')
         elif not re.match("^[A-Z][0-9]+$", value):

@@ -5,7 +5,6 @@ from copy import deepcopy
 from imp import load_module
 from itertools import product
 from os.path import exists, join
-from subprocess import check_output, CalledProcessError, STDOUT
 import inspect
 import re
 import sys
@@ -15,7 +14,6 @@ module_path = [p + "/Python_sml_ClientInterface.py" for p in sys.path if exists(
 with open(module_path) as fd:
     module = load_module("Python_sml_ClientInterface", fd, module_path, ('.py', 'U', 1))
 import Python_sml_ClientInterface as sml
-from state2dot import state2dot
 
 # SML wrappers
 
@@ -66,7 +64,7 @@ class Agent:
         @property
         def value(self):
             if self.value_type == bool:
-                return (False if str(self.wme.ConvertToStringElement().GetValue()) == "false" else True)
+                return False if str(self.wme.ConvertToStringElement().GetValue()) == "false" else True
             elif self.value_type == int:
                 return int(self.wme.ConvertToIntElement().GetValue())
             elif self.value_type == float:
@@ -177,7 +175,7 @@ def parameterize_commands(param_map, commands):
 
 def run_parameterized_commands(agent, param_map, commands):
     for cmd in parameterize_commands(param_map, commands):
-        result = agent.ExecuteCommandLine(cmd)
+        agent.ExecuteCommandLine(cmd)
 
 def parameter_permutations(params):
     keys = sorted(params.keys())
@@ -295,7 +293,7 @@ class SoarExperiment:
         for k, v in sorted(self.parameter_space.items()):
             if len(v) > 1:
                 print("# {}: {}".format(k, v))
-    def run(self, with_cli=False, fixed_parameters=None, prerun_procedure=None):
+    def run(self, with_cli=False, fixed_parameters=None):
         parameter_space = deepcopy(self.parameter_space)
         if fixed_parameters:
             for k, v in fixed_parameters.items():
@@ -361,25 +359,16 @@ def num_decisions(param_map, domain, agent):
     return ("num_decisions", result)
 
 def avg_decision_time(param_map, domain, agent):
-    result = re.sub(".*\((.*) msec/decision.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
+    result = re.sub(r".*\((.*) msec/decision.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
     return ("avg_dc_msec", result)
 
 def max_decision_time(param_map, domain, agent):
-    result = re.sub(".*  Time \(sec\) *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats -M"), flags=re.DOTALL)
+    result = re.sub(r".*  Time \(sec\) *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats -M"), flags=re.DOTALL)
     return ("max_dc_msec", float(result) * 1000)
 
 def kernel_cpu_time(param_map, domain, agent):
     result = re.sub(".*Kernel CPU Time: *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
     return ("kernel_cpu_msec", float(result) * 1000)
-
-# soar code management
-
-def make_branch(branch):
-    try:
-        stdout = check_output(("make-branch", branch), stderr=STDOUT)
-        return True
-    except CalledProcessError as cpe:
-        return False
 
 if __name__ == "__main__":
     agent = create_kernel_in_current_thread().create_agent("text")

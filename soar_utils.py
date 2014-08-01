@@ -11,7 +11,7 @@ import re
 import sys
 
 # dynamically find the Soar trunk
-module_path = [p + "/Python_sml_ClientInterface.py" for p in sys.path if exists(join(p, "Python_sml_ClientInterface.py")) and "trunk" in p][0]
+module_path = [p + "/Python_sml_ClientInterface.py" for p in sys.path if exists(join(p, "Python_sml_ClientInterface.py"))][0]
 with open(module_path) as fd:
     module = load_module("Python_sml_ClientInterface", fd, module_path, ('.py', 'U', 1))
 import Python_sml_ClientInterface as sml

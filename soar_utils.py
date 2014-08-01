@@ -378,7 +378,7 @@ def kernel_cpu_time(param_map, domain, agent):
     result = re.sub(".*Kernel CPU Time: *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
     return ("kernel_cpu_msec", float(result) * 1000)
 
-if __name__ == "__main__":
+def main():
     agent = create_kernel_in_current_thread().create_agent("text")
     print(agent.execute_command_line("""
         sp {propose*init-agent
@@ -426,3 +426,6 @@ if __name__ == "__main__":
     """))
     environment = Ticker(agent)
     cli(agent)
+
+if __name__ == "__main__":
+    main()

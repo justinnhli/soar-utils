@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from abc import abstractmethod
 from ast import literal_eval
 from copy import deepcopy
 from imp import load_module
@@ -212,9 +213,13 @@ class SoarEnvironment:
     def __init__(self, agent):
         self.agent = agent
         self.wmes = {}
-        self.prev_state = None
         self.processed_commands = set()
+        self.io_initialized = False
         self.agent.register_for_run_event(sml.smlEVENT_AFTER_OUTPUT_PHASE, SoarEnvironment.update, self)
+    @abstractmethod
+    def initialize_io(self):
+        raise NotImplementedError()
+    @abstractmethod
     def update_io(self, mid, user_data, agent, message):
         raise NotImplementedError()
     def del_wme(self, parent, attr, child):
@@ -252,6 +257,9 @@ class SoarEnvironment:
         return commands
     @staticmethod
     def update(mid, user_data, agent, message):
+        if not user_data.io_initialized:
+            user_data.initialize_io()
+            user_data.io_initialized = True
         user_data.update_io(mid, user_data, Agent(agent), message)
         agent.Commit()
 

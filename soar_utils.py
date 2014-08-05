@@ -267,6 +267,8 @@ class Ticker(SoarEnvironment):
     def __init__(self, agent):
         super().__init__(agent)
         self.time = 0
+    def initialize_io(self):
+        self.add_wme(agent.input_link, "time", self.time)
     def update_io(self, mid, user_data, agent, message):
         commands = self.parse_output_commands()
         for command in commands:

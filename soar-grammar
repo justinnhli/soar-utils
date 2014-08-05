@@ -67,19 +67,19 @@ ConditionForOneIdentifier       = "(" ( StateSpecifier Whitespace )? OptWhitespa
 
 VariableTest                    = Variable ( Whitespace AttributeValueTest )*;
 AttributeValueTest              = ( NegationSpecifier OptWhitespace )? "^" OptWhitespace AttributeTest ( OptWhitespace "." OptWhitespace AttributeTest )* ( Whitespace ValueTest )*;
-AttributeTest                   = Test;
+AttributeTest                   = ComplexTest;
 ValueTest                       = PreferenceTest
                                 | StructuredValueTest;
-PreferenceTest                  = Test ( Whitespace AcceptableSpecifier )?;
+PreferenceTest                  = ComplexTest ( Whitespace AcceptableSpecifier )?;
 AcceptableSpecifier             = "+";
 StructuredValueTest             = "(" OptWhitespace ( Variable Whitespace )? AttributeValueTest ( Whitespace AttributeValueTest )* OptWhitespace ")";
-Test                            = ConjunctiveTest
-                                | SimpleTest;
-ConjunctiveTest                 = "{" OptWhitespace ( Variable Whitespace )? SimpleTest ( Whitespace SimpleTest )* OptWhitespace "}";
-SimpleTest                      = DisjunctiveTest
+ComplexTest                     = ConjunctiveTest
+                                | SingleTest;
+ConjunctiveTest                 = "{" OptWhitespace ( Variable Whitespace )? SingleTest ( Whitespace SingleTest )* OptWhitespace "}";
+SingleTest                      = DisjunctiveTest
                                 | RelationalTest;
 DisjunctiveTest                 = "<<" ( Whitespace Constant )+ Whitespace ">>";
-RelationalTest                  = ( Relation Whitespace )? SingleTest;
+RelationalTest                  = ( Relation Whitespace )? ExactTest;
 Relation                        = "="
                                 | "<>"
                                 | "<=>"
@@ -87,7 +87,7 @@ Relation                        = "="
                                 | "<="
                                 | "<"
                                 | ">";
-SingleTest                      = Constant
+ExactTest                       = Constant
                                 | Variable;
 Constant                        = SymbolicConstant
                                 | FloatingPointConstant

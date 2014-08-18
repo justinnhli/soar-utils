@@ -220,7 +220,7 @@ class SoarEnvironment:
     def initialize_io(self):
         raise NotImplementedError()
     @abstractmethod
-    def update_io(self, mid, user_data, agent, message):
+    def update_io(self):
         raise NotImplementedError()
     def del_wme(self, parent, attr, child):
         if (parent not in self.wmes) or (attr not in self.wmes[parent]) or (child not in self.wmes[parent][attr]):
@@ -260,7 +260,7 @@ class SoarEnvironment:
         if not user_data.io_initialized:
             user_data.initialize_io()
             user_data.io_initialized = True
-        user_data.update_io(mid, user_data, Agent(agent), message)
+        user_data.update_io()
         agent.Commit()
 
 class Ticker(SoarEnvironment):
@@ -268,8 +268,8 @@ class Ticker(SoarEnvironment):
         super().__init__(agent)
         self.time = 0
     def initialize_io(self):
-        self.add_wme(agent.input_link, "time", self.time)
-    def update_io(self, mid, user_data, agent, message):
+        self.add_wme(self.agent.input_link, "time", self.time)
+    def update_io(self):
         commands = self.parse_output_commands()
         for command in commands:
             if command.name == "print" and "message" in command.params:
@@ -277,9 +277,9 @@ class Ticker(SoarEnvironment):
                 command.add_status("complete")
             else:
                 command.add_status("error")
-        self.del_wme(agent.input_link, "time", self.time)
+        self.del_wme(self.agent.input_link, "time", self.time)
         self.time += 1
-        self.add_wme(agent.input_link, "time", self.time)
+        self.add_wme(self.agent.input_link, "time", self.time)
 
 class ParameterizedSoarEnvironment(SoarEnvironment):
     def __init__(self, parameters, agent):

@@ -438,7 +438,7 @@ def main():
             (halt)
         }
     """))
-    environment = Ticker(agent)
+    Ticker(agent)
     cli(agent)
 
 if __name__ == "__main__":

@@ -215,7 +215,7 @@ class SoarEnvironment:
         self.wmes = {}
         self.processed_commands = set()
         self.io_initialized = False
-        self.agent.register_for_run_event(sml.smlEVENT_AFTER_OUTPUT_PHASE, SoarEnvironment.update, self)
+        self.output_event_id = self.agent.register_for_run_event(sml.smlEVENT_AFTER_OUTPUT_PHASE, SoarEnvironment.update, self)
     @abstractmethod
     def initialize_io(self):
         raise NotImplementedError()
@@ -282,9 +282,21 @@ class Ticker(SoarEnvironment):
         self.add_wme(self.agent.input_link, "time", self.time)
 
 class ParameterizedSoarEnvironment(SoarEnvironment):
-    def __init__(self, parameters, agent):
+    def __init__(self, agent, env_class, arguments, parameters):
         super().__init__(agent)
+        self.arguments = arguments
         self.parameters = parameters
+        self.env_class = env_class(agent, *self.linearize_parameters())
+        self.agent.unregister_for_run_event(self.env_class.output_event_id)
+    def linearize_parameters(self):
+        return (self.parameters[key] for key in self.arguments)
+    def initialize_io(self):
+        params_wme = self.add_wme(self.agent.input_link, "parameters")
+        for key in self.arguments:
+            self.add_wme(params_wme.identifier, key, self.parameters[key])
+        self.env_class.initialize_io()
+    def update_io(self):
+        self.env_class.update_io()
 
 # experiment template and example
 

@@ -2,6 +2,7 @@
 
 from abc import abstractmethod
 from ast import literal_eval
+from contextlib import contextmanager
 from copy import deepcopy
 from imp import load_module
 from itertools import product
@@ -149,6 +150,17 @@ def create_kernel_in_current_thread():
     if kernel is None or kernel.HadError():
         raise RuntimeError("Error creating kernel: " + kernel.GetLastErrorDescription())
     return Kernel(kernel)
+
+@contextmanager
+def create_agent():
+    kernel = create_kernel_in_current_thread()
+    agent = kernel.create_agent("test")
+    try:
+        yield agent
+    finally:
+        kernel.destroy_agent(agent)
+        kernel.shutdown()
+        del kernel
 
 # mid-level framework
 
@@ -323,26 +335,22 @@ class SoarExperiment:
         for parameters in parameter_permutations(parameter_space):
             report = {}
             report.update(parameters)
-            kernel = create_kernel_in_current_thread()
-            agent = kernel.create_agent("test")
-            environment = self.environment_class(parameters, agent)
-            for f in self.prerun_procedures:
-                f(environment, parameters, agent)
-            if with_cli:
-                for command in parameterize_commands(parameters, self.commands):
-                    print("soar> " + command.strip())
-                    print(agent.execute_command_line(command).strip())
-                agent.execute_command_line("watch 1")
-                cli(agent)
-            else:
-                for command in parameterize_commands(parameters, self.commands):
-                    agent.execute_command_line(command)
-                agent.execute_command_line("run")
-            for name, reporter in self.reporters.items():
-                report[name] = reporter(environment, parameters, agent)
-            kernel.destroy_agent(agent)
-            kernel.shutdown()
-            del kernel
+            with create_agent() as agent:
+                environment = self.environment_class(parameters, agent)
+                for f in self.prerun_procedures:
+                    f(environment, parameters, agent)
+                if with_cli:
+                    for command in parameterize_commands(parameters, self.commands):
+                        print("soar> " + command.strip())
+                        print(agent.execute_command_line(command).strip())
+                    agent.execute_command_line("watch 1")
+                    cli(agent)
+                else:
+                    for command in parameterize_commands(parameters, self.commands):
+                        agent.execute_command_line(command)
+                    agent.execute_command_line("run")
+                for name, reporter in self.reporters.items():
+                    report[name] = reporter(environment, parameters, agent)
             print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
 
 # callback functions
@@ -393,53 +401,53 @@ def kernel_cpu_time(param_map, domain, agent):
     return ("kernel_cpu_msec", float(result) * 1000)
 
 def main():
-    agent = create_kernel_in_current_thread().create_agent("text")
-    print(agent.execute_command_line("""
-        sp {propose*init-agent
-            (state <s> ^superstate nil
-                      -^name)
-        -->
-            (<s> ^operator.name init-agent)
-        }
-        sp {apply*init-agent
-            (state <s> ^operator.name init-agent)
-        -->
-            (<s> ^name ticker)
-        }
-        sp {ticker*propose*print
-            (state <s> ^name ticker
-                       ^io.input-link.time <time>)
-        -->
-            (<s> ^operator.name print)
-        }
-        sp {ticker*apply*print
-            (state <s> ^name ticker
-                       ^operator.name print
-                       ^io <io>)
-            (<io> ^input-link.time <time>
-                  ^output-link <ol>)
-        -->
-            (<ol> ^print.message <time>)
-        }
-        sp {ticker*apply*all*remove-completed
-            (state <s> ^operator.name
-                       ^io.output-link <ol>)
-            (<ol> ^<command> <cmd>)
-            (<cmd> ^status complete)
-        -->
-            (<ol> ^<command> <cmd> -)
-        }
-        sp {ticker*fail
-            (state <s> ^io.input-link <il>)
-            (<il> ^time <t1>
-                  ^time {<t2> <> <t1>})
-        -->
-            (write (crlf) |FAIL| (crlf))
-            (halt)
-        }
-    """))
-    Ticker(agent)
-    cli(agent)
+    with create_agent() as agent:
+        print(agent.execute_command_line("""
+            sp {propose*init-agent
+                (state <s> ^superstate nil
+                          -^name)
+            -->
+                (<s> ^operator.name init-agent)
+            }
+            sp {apply*init-agent
+                (state <s> ^operator.name init-agent)
+            -->
+                (<s> ^name ticker)
+            }
+            sp {ticker*propose*print
+                (state <s> ^name ticker
+                           ^io.input-link.time <time>)
+            -->
+                (<s> ^operator.name print)
+            }
+            sp {ticker*apply*print
+                (state <s> ^name ticker
+                           ^operator.name print
+                           ^io <io>)
+                (<io> ^input-link.time <time>
+                      ^output-link <ol>)
+            -->
+                (<ol> ^print.message <time>)
+            }
+            sp {ticker*apply*all*remove-completed
+                (state <s> ^operator.name
+                           ^io.output-link <ol>)
+                (<ol> ^<command> <cmd>)
+                (<cmd> ^status complete)
+            -->
+                (<ol> ^<command> <cmd> -)
+            }
+            sp {ticker*fail
+                (state <s> ^io.input-link <il>)
+                (<il> ^time <t1>
+                      ^time {<t2> <> <t1>})
+            -->
+                (write (crlf) |FAIL| (crlf))
+                (halt)
+            }
+        """))
+        Ticker(agent)
+        cli(agent)
 
 if __name__ == "__main__":
     main()

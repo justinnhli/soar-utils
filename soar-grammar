@@ -55,15 +55,12 @@ ProductionType                  = ":o-support"
                                 | ":interrupt"
                                 | ":template";
 
-ConditionSide                   = FirstCondition ( OptWhitespace Condition )*;
-FirstCondition                  = "(" OptWhitespace StateSpecifier Whitespace VariableTest OptWhitespace ")";
-StateSpecifier                  = "state";
-Condition                       = ( NegationSpecifier )? OptWhitespace PositiveCondition;
+ConditionSide                   = ( OptWhitespace Condition )+;
+Condition                       = ConditionForMultipleIdentifiers
+                                | ConditionForOneIdentifier;
 NegationSpecifier               = "-";
-PositiveCondition               = ConditionForOneIdentifier
-                                | ConditionForMultipleIdentifiers;
-ConditionForMultipleIdentifiers = "{" ( OptWhitespace Condition )+ OptWhitespace "}";
-ConditionForOneIdentifier       = "(" ( StateSpecifier Whitespace )? OptWhitespace VariableTest OptWhitespace ")";
+ConditionForMultipleIdentifiers = ( NegationSpecifier OptWhitespace )? "{" ( OptWhitespace Condition )+ OptWhitespace "}";
+ConditionForOneIdentifier       = ( NegationSpecifier OptWhitespace )? "(" OptWhitespace ( StateSpecifier Whitespace )? VariableTest OptWhitespace ")";
 
 VariableTest                    = Variable ( Whitespace AttributeValueTest )*;
 AttributeValueTest              = ( NegationSpecifier OptWhitespace )? "^" OptWhitespace AttributeTest ( OptWhitespace "." OptWhitespace AttributeTest )* ( Whitespace ValueTest )*;

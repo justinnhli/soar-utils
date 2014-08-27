@@ -205,9 +205,9 @@ class SoarEnvironment:
             assert isinstance(wme, Agent.WME)
             self.wme = wme
             self.name = self.wme.attribute
-            self.parameters = {}
+            self.arguments = {}
             for parameter in self.wme.value.children():
-                self.parameters[parameter.attribute] = parameter.value
+                self.arguments[parameter.attribute] = parameter.value
         def add_status(self, status):
             self.wme.value.add_child("status", status)
     def __init__(self, agent):
@@ -272,8 +272,8 @@ class Ticker(SoarEnvironment):
     def update_io(self):
         commands = self.parse_output_commands()
         for command in commands:
-            if command.name == "print" and "message" in command.params:
-                print(command.params["message"])
+            if command.name == "print" and "message" in command.arguments:
+                print(command.arguments["message"])
                 command.add_status("complete")
             else:
                 command.add_status("error")

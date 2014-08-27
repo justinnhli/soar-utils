@@ -292,7 +292,7 @@ class ParameterizedSoarEnvironment(SoarEnvironment):
         return (self.parameters[key] for key in self.arguments)
     def initialize_io(self):
         params_wme = self.add_wme(self.agent.input_link, "parameters")
-        for key in self.arguments:
+        for key in self.parameters:
             self.add_wme(params_wme.identifier, key, self.parameters[key])
         self.env_class.initialize_io()
     def update_io(self):

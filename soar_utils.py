@@ -183,16 +183,16 @@ def str_to_parameters(s):
         parameters[k] = v
     return parameters
 
-def parameterize_commands(param_map, commands):
-    return [cmd.format(**param_map) for cmd in commands]
+def parameterize_commands(parameters, commands):
+    return [cmd.format(**parameters) for cmd in commands]
 
-def run_parameterized_commands(agent, param_map, commands):
-    for cmd in parameterize_commands(param_map, commands):
-        agent.ExecuteCommandLine(cmd)
+def run_parameterized_commands(agent, parameters, commands):
+    for cmd in parameterize_commands(parameters, commands):
+        agent.execute_command_line(cmd)
 
-def parameter_permutations(params):
-    keys = sorted(params.keys())
-    for values in product(*(params[key] for key in keys)):
+def parameter_permutations(parameter_space):
+    keys = sorted(parameter_space.keys())
+    for values in product(*(parameter_space[key] for key in keys)):
         original = dict(zip(keys, values))
         modified = {}
         changed = True
@@ -294,28 +294,29 @@ class Ticker(SoarEnvironment):
         self.add_wme(self.agent.input_link, "time", self.time)
 
 class ParameterizedSoarEnvironment(SoarEnvironment):
-    def __init__(self, agent, env_class, arguments, parameters):
+    def __init__(self, agent, environment_class, arguments, parameters):
         super().__init__(agent)
         self.arguments = arguments
         self.parameters = parameters
-        self.env_class = env_class(agent, *self.linearize_parameters())
-        self.agent.unregister_for_run_event(self.env_class.output_event_id)
+        self.environment_class = environment_class(agent, *self.linearize_parameters())
+        self.agent.unregister_for_run_event(self.environment_class.output_event_id)
     def linearize_parameters(self):
         return (self.parameters[key] for key in self.arguments)
     def initialize_io(self):
         params_wme = self.add_wme(self.agent.input_link, "parameters")
         for key in self.parameters:
             self.add_wme(params_wme.identifier, key, self.parameters[key])
-        self.env_class.initialize_io()
+        self.environment_class.initialize_io()
     def update_io(self):
-        self.env_class.update_io()
+        self.environment_class.update_io()
 
 # experiment template and example
 
 class SoarExperiment:
-    def __init__(self, name, environment_class, parameter_space, commands, reporters):
+    def __init__(self, name, environment_class, arguments, parameter_space, commands, reporters):
         self.name = name
         self.environment_class = environment_class
+        self.arguments = arguments
         self.parameter_space = parameter_space
         self.parameter_space["experiment_name"] = (self.name,)
         self.commands = commands
@@ -336,7 +337,7 @@ class SoarExperiment:
             report = {}
             report.update(parameters)
             with create_agent() as agent:
-                environment = self.environment_class(parameters, agent)
+                environment = ParameterizedSoarEnvironment(agent, self.environment_class, self.arguments, parameters)
                 for f in self.prerun_procedures:
                     f(environment, parameters, agent)
                 if with_cli:
@@ -381,24 +382,19 @@ def report_data_wrapper(param_map, domain, reporters, condition=None):
 
 # common reporters
 
-def soar_path(param_map, domain, agent):
-    return ("computed_branch", inspect.getfile(sml))
+def num_decisions(environment, parameters, agent):
+    return re.sub("^.*\n([0-9]+) decisions.*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL)
 
-def num_decisions(param_map, domain, agent):
-    result = re.sub("^([^ ]*) decisions.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
-    return ("num_decisions", result)
+def avg_decision_time(environment, parameters, agent):
+    return re.sub(r".*\(([0-9.]+) msec/decision.*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL)
 
-def avg_decision_time(param_map, domain, agent):
-    result = re.sub(r".*\((.*) msec/decision.*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
-    return ("avg_dc_msec", result)
+def max_decision_time(environment, parameters, agent):
+    result = re.sub(r".*  Time \(sec\) *([0-9.]+).*", r"\1", agent.execute_command_line("stats -M"), flags=re.DOTALL)
+    return float(result) * 1000
 
-def max_decision_time(param_map, domain, agent):
-    result = re.sub(r".*  Time \(sec\) *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats -M"), flags=re.DOTALL)
-    return ("max_dc_msec", float(result) * 1000)
-
-def kernel_cpu_time(param_map, domain, agent):
-    result = re.sub(".*Kernel CPU Time: *([0-9.]*).*", r"\1", agent.ExecuteCommandLine("stats"), flags=re.DOTALL)
-    return ("kernel_cpu_msec", float(result) * 1000)
+def kernel_cpu_time(environment, parameters, agent):
+    result = re.sub(".*Kernel CPU Time: *([0-9.]+).*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL)
+    return float(result) * 1000
 
 def main():
     with create_agent() as agent:

@@ -197,25 +197,6 @@ def run_parameterized_commands(agent, parameters, commands):
     for cmd in parameterize_commands(parameters, commands):
         agent.execute_command_line(cmd)
 
-def parameter_permutations(parameter_space):
-    keys = sorted(parameter_space.keys())
-    for values in product(*(parameter_space[key] for key in keys)):
-        original = dict(zip(keys, values))
-        modified = {}
-        changed = True
-        while changed:
-            changed = False
-            for k, v in original.items():
-                if isinstance(v, str):
-                    replaced_v = v.format(**original)
-                    if replaced_v != v:
-                        changed = True
-                    modified[k] = replaced_v
-                else:
-                    modified[k] = v
-            original, modified = modified, {}
-        yield original
-
 # environment template and example
 
 class SoarEnvironment:
@@ -319,47 +300,84 @@ class ParameterizedSoarEnvironment(SoarEnvironment):
 
 # experiment template and example
 
+class ParameterSpace:
+    def __init__(self, **parameters):
+        self.parameter_space = parameters
+        self._repair_parameter_space()
+    def _repair_parameter_space(self):
+        non_list_keys = (k for k, v in self.parameter_space.items() if not isinstance(v, tuple))
+        for k in non_list_keys:
+            if isinstance(self.parameter_space[k], list):
+                self.parameter_space[k] = tuple(self.parameter_space[k])
+            elif False: # FIXME check parameter is a generator
+                pass
+            else:
+                self.parameter_space[k] = (self.parameter_space[k],)
+    def independent_variables(self):
+        return [k for k, v in self.parameter_space.items() if len(v) > 1]
+    def dependent_variables(self):
+        return [k for k, v in self.parameter_space.items() if len(v) == 1]
+    def clone(self):
+        return ParameterSpace(**deepcopy(self.parameter_space))
+    def fix_parameters(self, **parameters):
+        self.parameter_space.update(parameters)
+        self._repair_parameter_space()
+    def permutations(self):
+        keys = sorted(self.parameter_space.keys())
+        for values in product(*(self.parameter_space[key] for key in keys)):
+            original = dict(zip(keys, values))
+            modified = {}
+            changed = True
+            while changed:
+                changed = False
+                for k, v in original.items():
+                    if isinstance(v, str):
+                        replaced_v = v.format(**original)
+                        if replaced_v != v:
+                            changed = True
+                        modified[k] = replaced_v
+                    else:
+                        modified[k] = v
+                original, modified = modified, {}
+            yield original
+
 class SoarExperiment:
-    def __init__(self, name, environment_class, arguments, parameter_space, commands, reporters):
-        self.name = name
+    def __init__(self, environment_class, arguments, parameter_space, commands, reporters):
         self.environment_class = environment_class
         self.arguments = arguments
         self.parameter_space = parameter_space
-        self.parameter_space["experiment_name"] = (self.name,)
         self.commands = commands
         self.reporters = reporters
         self.prerun_procedures = set()
     def register_prerun_procedure(self, f):
         self.prerun_procedures.add(f)
-    def print_independent_variables(self):
-        for k, v in sorted(self.parameter_space.items()):
-            if len(v) > 1:
-                print("# {}: {}".format(k, v))
-    def run(self, with_cli=False, fixed_parameters=None):
-        parameter_space = deepcopy(self.parameter_space)
-        if fixed_parameters:
-            for k, v in fixed_parameters.items():
-                parameter_space[k] = (v,)
-        for parameters in parameter_permutations(parameter_space):
-            report = {}
-            report.update(parameters)
-            with create_agent() as agent:
-                environment = ParameterizedSoarEnvironment(agent, self.environment_class, self.arguments, parameters)
-                for f in self.prerun_procedures:
-                    f(environment, parameters, agent)
-                if with_cli:
-                    for command in parameterize_commands(parameters, self.commands):
-                        print("soar> " + command.strip())
-                        print(agent.execute_command_line(command).strip())
-                    agent.execute_command_line("watch 1")
-                    cli(agent)
-                else:
-                    for command in parameterize_commands(parameters, self.commands):
-                        agent.execute_command_line(command)
-                    agent.execute_command_line("run")
-                for name, reporter in self.reporters.items():
-                    report[name] = reporter(environment, parameters, agent)
-            print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
+    def run_all(self, with_cli=False):
+        self.run_with(with_cli=with_cli)
+    def run_with(self, with_cli=False, **updates):
+        parameter_space = self.parameter_space.clone()
+        parameter_space.fix_parameters(**updates)
+        for parameters in parameter_space.permutations():
+            self.run(parameters, with_cli=with_cli)
+    def run(self, parameters, with_cli=False):
+        report = {}
+        report.update(parameters)
+        with create_agent() as agent:
+            environment = ParameterizedSoarEnvironment(agent, self.environment_class, self.arguments, parameters)
+            for f in self.prerun_procedures:
+                f(environment, parameters, agent)
+            if with_cli:
+                for command in parameterize_commands(parameters, self.commands):
+                    print("soar> " + command.strip())
+                    print(agent.execute_command_line(command).strip())
+                agent.execute_command_line("watch 1")
+                cli(agent)
+            else:
+                for command in parameterize_commands(parameters, self.commands):
+                    agent.execute_command_line(command)
+                agent.execute_command_line("run")
+            for name, reporter in self.reporters.items():
+                report[name] = reporter(environment, parameters, agent)
+        print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
 
 # callback functions
 

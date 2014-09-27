@@ -199,6 +199,8 @@ def run_parameterized_commands(agent, parameters, commands):
 
 # environment template and example
 
+# FIXME would like to allow agent to send data back for the report
+
 class SoarEnvironment:
     class Command:
         def __init__(self, wme):

@@ -305,6 +305,7 @@ class ParameterizedSoarEnvironment(SoarEnvironment):
 class ParameterSpace:
     def __init__(self, **parameters):
         self.parameter_space = parameters
+        self.filters = set()
         self._repair_parameter_space()
     def _repair_parameter_space(self):
         non_list_keys = (k for k, v in self.parameter_space.items() if not isinstance(v, tuple))
@@ -319,6 +320,8 @@ class ParameterSpace:
         return [k for k, v in self.parameter_space.items() if len(v) > 1]
     def dependent_variables(self):
         return [k for k, v in self.parameter_space.items() if len(v) == 1]
+    def add_filter(self, fn):
+        self.filters.add(fn)
     def clone(self):
         return ParameterSpace(**deepcopy(self.parameter_space))
     def fix_parameters(self, **parameters):
@@ -341,7 +344,8 @@ class ParameterSpace:
                     else:
                         modified[k] = v
                 original, modified = modified, {}
-            yield original
+            if all(fn(original) for fn in self.filters):
+                yield original
 
 class SoarExperiment:
     def __init__(self, environment_class, arguments, parameter_space, commands, reporters):

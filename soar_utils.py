@@ -283,23 +283,6 @@ class Ticker(SoarEnvironment):
         self.time += 1
         self.add_wme(self.agent.input_link, "time", self.time)
 
-class ParameterizedSoarEnvironment(SoarEnvironment):
-    def __init__(self, agent, environment_class, arguments, parameters):
-        super().__init__(agent)
-        self.arguments = arguments
-        self.parameters = parameters
-        self.environment_class = environment_class(agent, *self.linearize_parameters())
-        self.agent.unregister_for_run_event(self.environment_class.output_event_id)
-    def linearize_parameters(self):
-        return (self.parameters[key] for key in self.arguments)
-    def initialize_io(self):
-        params_wme = self.add_wme(self.agent.input_link, "parameters")
-        for key in self.parameters:
-            self.add_wme(params_wme.identifier, key, self.parameters[key])
-        self.environment_class.initialize_io()
-    def update_io(self):
-        self.environment_class.update_io()
-
 # experiment template and example
 
 class ParameterSpace:
@@ -348,6 +331,22 @@ class ParameterSpace:
                 yield original
 
 class SoarExperiment:
+    class ParameterizedSoarEnvironment(SoarEnvironment):
+        def __init__(self, agent, environment_class, arguments, parameters):
+            super().__init__(agent)
+            self.arguments = arguments
+            self.parameters = parameters
+            self.environment_instance = environment_class(agent, *self.linearize_parameters())
+            self.agent.unregister_for_run_event(self.environment_instance.output_event_id)
+        def linearize_parameters(self):
+            return (self.parameters[key] for key in self.arguments)
+        def initialize_io(self):
+            params_wme = self.add_wme(self.agent.input_link, "parameters")
+            for key in self.parameters:
+                self.add_wme(params_wme.identifier, key, self.parameters[key])
+            self.environment_instance.initialize_io()
+        def update_io(self):
+            self.environment_instance.update_io()
     def __init__(self, environment_class, arguments, parameter_space, commands, reporters):
         self.environment_class = environment_class
         self.arguments = arguments
@@ -368,9 +367,9 @@ class SoarExperiment:
         report = {}
         report.update(parameters)
         with create_agent() as agent:
-            environment = ParameterizedSoarEnvironment(agent, self.environment_class, self.arguments, parameters)
+            environment = SoarExperiment.ParameterizedSoarEnvironment(agent, self.environment_class, self.arguments, parameters)
             for f in self.prerun_procedures:
-                f(environment, parameters, agent)
+                f(environment.environment_instance, parameters, agent)
             if with_cli:
                 for command in parameterize_commands(parameters, self.commands):
                     print("soar> " + command.strip())
@@ -382,7 +381,7 @@ class SoarExperiment:
                     agent.execute_command_line(command)
                 agent.execute_command_line("run")
             for name, reporter in self.reporters.items():
-                report[name] = reporter(environment, parameters, agent)
+                report[name] = reporter(environment.environment_instance, parameters, agent)
         print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
 
 # callback functions

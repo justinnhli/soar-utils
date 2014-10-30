@@ -299,14 +299,16 @@ class ParameterSpace:
                 pass
             else:
                 self.parameter_space[k] = (self.parameter_space[k],)
-    def independent_variables(self):
+    def clone(self):
+        return ParameterSpace(**deepcopy(self.parameter_space))
+    def independent_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) > 1]
-    def dependent_variables(self):
+    def dependent_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) == 1]
     def add_filter(self, fn):
         self.filters.add(fn)
-    def clone(self):
-        return ParameterSpace(**deepcopy(self.parameter_space))
+    def factorize_parameters(self, **defaults):
+        self.add_filter((lambda parameters: sum((1 if key in parameters and parameters[key] != value else 0) for key, value in defaults.items()) <= 1))
     def fix_parameters(self, **parameters):
         self.parameter_space.update(parameters)
         self._repair_parameter_space()

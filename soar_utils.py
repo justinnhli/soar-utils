@@ -307,7 +307,9 @@ class ParameterSpace:
     def add_filter(self, fn):
         self.filters.add(fn)
     def factorize_parameters(self, **defaults):
-        self.add_filter((lambda parameters: sum((1 if key in parameters and parameters[key] != value else 0) for key, value in defaults.items()) <= 1))
+        self.add_filter((lambda p: sum((1 if key in p and p[key] != value else 0) for key, value in defaults.items()) <= 1))
+    def add_if_then_filter(self, antecedent, consequent):
+        self.add_filter((lambda p: (not antecedent(p) or consequent(p))))
     def fix_parameters(self, **parameters):
         self.parameter_space.update(parameters)
         self._repair_parameter_space()

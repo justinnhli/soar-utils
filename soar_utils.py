@@ -5,6 +5,7 @@ from ast import literal_eval
 from contextlib import contextmanager
 from copy import deepcopy
 from imp import load_module
+from inspect import signature
 from itertools import product
 from os.path import exists, join
 import re
@@ -335,14 +336,14 @@ class ParameterSpace:
 
 class SoarExperiment:
     class ParameterizedSoarEnvironment(SoarEnvironment):
-        def __init__(self, agent, environment_class, arguments, parameters):
+        def __init__(self, agent, environment_class, parameters):
             super().__init__(agent)
-            self.arguments = arguments
-            self.parameters = parameters
+            self.environment_class = environment_class
             self.environment_instance = environment_class(agent, *self.linearize_parameters())
+            self.parameters = parameters
             self.agent.unregister_for_run_event(self.environment_instance.output_event_id)
         def linearize_parameters(self):
-            return (self.parameters[key] for key in self.arguments)
+            return (self.parameters[key] for key in signature(self.environment_class).parameters[2:])
         def initialize_io(self):
             params_wme = self.add_wme(self.agent.input_link, "parameters")
             for key in self.parameters:
@@ -350,9 +351,8 @@ class SoarExperiment:
             self.environment_instance.initialize_io()
         def update_io(self):
             self.environment_instance.update_io()
-    def __init__(self, environment_class, arguments, parameter_space, commands, reporters):
+    def __init__(self, environment_class, parameter_space, commands, reporters):
         self.environment_class = environment_class
-        self.arguments = arguments
         self.parameter_space = parameter_space
         self.commands = commands
         self.reporters = reporters
@@ -370,7 +370,7 @@ class SoarExperiment:
         report = {}
         report.update(parameters)
         with create_agent() as agent:
-            environment = SoarExperiment.ParameterizedSoarEnvironment(agent, self.environment_class, self.arguments, parameters)
+            environment = SoarExperiment.ParameterizedSoarEnvironment(agent, self.environment_class, parameters)
             for f in self.prerun_procedures:
                 f(environment.environment_instance, parameters, agent)
             if with_cli:

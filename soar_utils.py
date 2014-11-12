@@ -299,7 +299,7 @@ class ParameterSpace:
             else:
                 self.parameter_space[k] = (self.parameter_space[k],)
     def clone(self):
-        return ParameterSpace(**deepcopy(self.parameter_space))
+        return deepcopy(self)
     def independent_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) > 1]
     def dependent_parameters(self):

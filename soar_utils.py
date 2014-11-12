@@ -7,7 +7,6 @@ from copy import deepcopy
 from imp import load_module
 from itertools import product
 from os.path import exists, join
-import inspect
 import re
 import sys
 

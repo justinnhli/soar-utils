@@ -368,6 +368,7 @@ class SoarExperiment:
         for parameters in parameter_space.permutations():
             self.run(parameters, with_cli=with_cli)
     def run(self, parameters, with_cli=False):
+        report_ordering = sorted(self.parameter_space.variable_parameters()) + sorted(self.parameter_space.constant_parameters()) + sorted(self.reporters.keys())
         report = {}
         report.update(parameters)
         with create_agent() as agent:
@@ -386,7 +387,7 @@ class SoarExperiment:
                 agent.execute_command_line("run")
             for name, reporter in self.reporters.items():
                 report[name] = reporter(environment.environment_instance, parameters, agent)
-        print(" ".join("{}={}".format(k, v) for k, v in sorted(report.items())))
+        print(" ".join("{}={}".format(k, report[k]) for k in report_ordering))
 
 # callback functions
 

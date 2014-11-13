@@ -8,6 +8,7 @@ from imp import load_module
 from inspect import signature
 from itertools import product
 from os.path import exists, join
+from types import GeneratorType
 import re
 import sys
 
@@ -293,10 +294,8 @@ class ParameterSpace:
     def _repair_parameter_space(self):
         non_list_keys = (k for k, v in self.parameter_space.items() if not isinstance(v, tuple))
         for k in non_list_keys:
-            if isinstance(self.parameter_space[k], list):
+            if any(isinstance(self.parameter_space[k], t) for t in (list, range, GeneratorType)):
                 self.parameter_space[k] = tuple(self.parameter_space[k])
-            elif False: # FIXME check parameter is a generator
-                pass
             else:
                 self.parameter_space[k] = (self.parameter_space[k],)
     def clone(self):

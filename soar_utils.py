@@ -300,9 +300,9 @@ class ParameterSpace:
                 self.parameter_space[k] = (self.parameter_space[k],)
     def clone(self):
         return deepcopy(self)
-    def independent_parameters(self):
+    def variable_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) > 1]
-    def dependent_parameters(self):
+    def constant_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) == 1]
     def add_filter(self, fn):
         self.filters.add(fn)

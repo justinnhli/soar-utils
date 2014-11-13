@@ -339,11 +339,13 @@ class SoarExperiment:
         def __init__(self, agent, environment_class, parameters):
             super().__init__(agent)
             self.environment_class = environment_class
-            self.environment_instance = environment_class(agent, *self.linearize_parameters())
             self.parameters = parameters
+            self.environment_instance = environment_class(agent, *self.linearize_parameters())
             self.agent.unregister_for_run_event(self.environment_instance.output_event_id)
         def linearize_parameters(self):
-            return (self.parameters[key] for key in signature(self.environment_class).parameters[2:])
+            arguments = tuple(signature(self.environment_class).parameters)[1:]
+            assert set(arguments).issubset(self.parameters.keys())
+            return (self.parameters[key] for key in arguments)
         def initialize_io(self):
             params_wme = self.add_wme(self.agent.input_link, "parameters")
             for key in self.parameters:

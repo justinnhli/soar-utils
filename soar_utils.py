@@ -405,14 +405,14 @@ class SoarExperiment:
         self.prerun_procedures = set()
     def register_prerun_procedure(self, f):
         self.prerun_procedures.add(f)
-    def run_all(self, with_cli=False):
-        self.run_with(with_cli=with_cli)
-    def run_with(self, with_cli=False, **updates):
+    def run_all(self, repl=False):
+        self.run_with(repl=repl)
+    def run_with(self, repl=False, **updates):
         parameter_space = self.parameter_space.clone()
         parameter_space.fix_parameters(**updates)
         for parameters in parameter_space.permutations():
-            self.run(parameters, with_cli=with_cli)
-    def run(self, parameters, with_cli=False):
+            self.run(parameters, repl=repl)
+    def run(self, parameters, repl=False):
         report_ordering = sorted(self.parameter_space.variable_parameters) + sorted(self.parameter_space.constant_parameters) + sorted(self.reporters.keys())
         report = {}
         report.update(parameters)
@@ -420,7 +420,7 @@ class SoarExperiment:
             environment = SoarExperiment.ParameterizedSoarEnvironment(agent, self.environment_class, parameters)
             for f in self.prerun_procedures:
                 f(environment.environment_instance, parameters, agent)
-            if with_cli:
+            if repl:
                 for command in parameterize_commands(parameters, self.commands):
                     print("soar> " + command.strip())
                     print(agent.execute_command_line(command).strip())
@@ -435,8 +435,7 @@ class SoarExperiment:
         print(" ".join("{}={}".format(k, report[k]) for k in report_ordering))
     def cli(self):
         arg_parser = ArgumentParser()
-        arg_parser.set_defaults(with_cli=False)
-        arg_parser.add_argument("--with-cli", action="store_true", help="start a command line with the agents")
+        arg_parser.add_argument("--repl", action="store_true", default=False, help="start an interactive command line")
         for key in self.parameter_space.parameters:
             arg_parser.add_argument("--" + key.replace("_", "-"))
         args = arg_parser.parse_args()

@@ -337,11 +337,16 @@ class ParameterSpace:
     def size(self):
         return len(list(self.permutations()))
     @property
+    def parameters(self):
+        return tuple(self.parameter_space.keys())
+    @property
     def variable_parameters(self):
-        return [k for k, v in self.parameter_space.items() if len(v) > 1]
+        return tuple(k for k, v in self.parameter_space.items() if len(v) > 1)
     @property
     def constant_parameters(self):
-        return [k for k, v in self.parameter_space.items() if len(v) == 1]
+        return tuple(k for k, v in self.parameter_space.items() if len(v) == 1)
+    def get_parameter_values(self, parameter):
+        return self.parameter_space[parameter]
     def add_filter(self, fn):
         self.filters.add(fn)
     def factorize_parameters(self, **defaults):

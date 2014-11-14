@@ -410,10 +410,10 @@ class SoarExperiment:
     def run_with(self, repl=False, **updates):
         parameter_space = self.parameter_space.clone()
         parameter_space.fix_parameters(**updates)
+        report_ordering = sorted(parameter_space.variable_parameters) + sorted(parameter_space.constant_parameters) + sorted(self.reporters.keys()) # FIXME hack
         for parameters in parameter_space.permutations():
-            self.run(parameters, repl=repl)
-    def run(self, parameters, repl=False):
-        report_ordering = sorted(self.parameter_space.variable_parameters) + sorted(self.parameter_space.constant_parameters) + sorted(self.reporters.keys())
+            self.run(parameters, report_ordering, repl=repl)
+    def run(self, parameters, report_ordering, repl=False):
         report = {}
         report.update(parameters)
         with create_agent() as agent:

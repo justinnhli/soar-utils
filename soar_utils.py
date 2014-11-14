@@ -333,8 +333,13 @@ class ParameterSpace:
                 self.parameter_space[k] = (self.parameter_space[k],)
     def clone(self):
         return deepcopy(self)
+    @property
+    def size(self):
+        return len(list(self.permutations()))
+    @property
     def variable_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) > 1]
+    @property
     def constant_parameters(self):
         return [k for k, v in self.parameter_space.items() if len(v) == 1]
     def add_filter(self, fn):
@@ -402,7 +407,7 @@ class SoarExperiment:
         for parameters in parameter_space.permutations():
             self.run(parameters, with_cli=with_cli)
     def run(self, parameters, with_cli=False):
-        report_ordering = sorted(self.parameter_space.variable_parameters()) + sorted(self.parameter_space.constant_parameters()) + sorted(self.reporters.keys())
+        report_ordering = sorted(self.parameter_space.variable_parameters) + sorted(self.parameter_space.constant_parameters) + sorted(self.reporters.keys())
         report = {}
         report.update(parameters)
         with create_agent() as agent:

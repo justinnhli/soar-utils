@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from abc import abstractmethod
+from argparse import ArgumentParser
 from ast import literal_eval
 from contextlib import contextmanager
 from copy import deepcopy
@@ -432,6 +433,18 @@ class SoarExperiment:
             for name, reporter in self.reporters.items():
                 report[name] = reporter(environment.environment_instance, parameters, agent)
         print(" ".join("{}={}".format(k, report[k]) for k in report_ordering))
+    def cli(self):
+        arg_parser = ArgumentParser()
+        arg_parser.set_defaults(with_cli=False)
+        arg_parser.add_argument("--with-cli", action="store_true", help="start a command line with the agents")
+        for key in self.parameter_space.parameters:
+            arg_parser.add_argument("--" + key.replace("_", "-"))
+        args = arg_parser.parse_args()
+        parameters = {}
+        for key, value in args.__dict__.items():
+            if value is not None:
+                parameters[key] = intellicast(value)
+        self.run_with(**parameters)
 
 # callback functions
 
@@ -474,6 +487,23 @@ def max_decision_time(environment, parameters, agent):
 def kernel_cpu_time(environment, parameters, agent):
     result = re.sub(".*Kernel CPU Time: *([0-9.]+).*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL)
     return float(result) * 1000
+
+# utilities
+
+def intellicast(string):
+    try:
+        return int(string)
+    except ValueError:
+        pass
+    try:
+        return float(string)
+    except ValueError:
+        pass
+    try:
+        return literal_eval(string)
+    except ValueError:
+        pass
+    return string
 
 def main():
     with create_agent() as agent:

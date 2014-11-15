@@ -393,7 +393,7 @@ class SoarExperiment:
         def initialize_io(self):
             params_wme = self.add_wme(self.agent.input_link, "parameters")
             for key in self.parameters.keys():
-                self.add_wme(params_wme.identifier, key, self.parameters[key])
+                self.add_wme(params_wme.identifier, key.replace("_", "-"), self.parameters[key])
             self.environment_instance.initialize_io()
         def update_io(self):
             self.environment_instance.update_io()

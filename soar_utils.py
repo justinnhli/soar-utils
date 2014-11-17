@@ -362,12 +362,19 @@ class SoarExperiment:
             self.environment_instance.initialize_io()
         def update_io(self):
             self.environment_instance.update_io()
-    def __init__(self, environment_class, parameter_space, commands, reporters):
+    def __init__(self, environment_class, commands, reporters, parameter_space=None):
         self.environment_class = environment_class
-        self.parameter_space = parameter_space
         self.commands = commands
         self.reporters = reporters
+        if parameter_space is not None:
+            self.set_parameter_space(parameter_space)
+        else:
+            self.parameter_space = parameter_space
         self.prerun_procedures = set()
+    def set_parameter_space(self, parameter_space):
+        missing_arguments = set(dict(positional_arguments(self.environment_class.__init__)).keys()) - set(parameter_space.parameters)
+        assert len(missing_arguments) == 0, "missing arguments: {}".format(" ".join(sorted(missing_arguments)))
+        self.parameter_space = parameter_space
     def register_prerun_procedure(self, f):
         self.prerun_procedures.add(f)
     def run_all(self, repl=False):

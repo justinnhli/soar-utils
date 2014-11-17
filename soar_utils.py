@@ -436,7 +436,7 @@ class SoarExperiment:
     def cli(self):
         arg_parser = ArgumentParser()
         arg_parser.add_argument("--repl", action="store_true", default=False, help="start an interactive command line")
-        for key in self.parameter_space.parameters:
+        for key in sorted(self.parameter_space.parameters):
             arg_parser.add_argument("--" + key.replace("_", "-"))
         args = arg_parser.parse_args()
         parameters = {}

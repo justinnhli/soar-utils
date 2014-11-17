@@ -417,6 +417,28 @@ class SoarExperiment:
                 parameters[key] = intellicast(value)
         self.run_with(**parameters)
 
+class ExperimentsCLI:
+    def __init__(self, experiment, default_parameter_space, experiment_parameter_spaces):
+        self.experiment = experiment
+        self.default_parameter_space = default_parameter_space
+        self.experiment_parameter_spaces = experiment_parameter_spaces
+    def cli(self):
+        arg_parser = ArgumentParser()
+        arg_parser.add_argument("experiment", nargs="*", default=[None], metavar="EXPERIMENT", help="experiment to run")
+        arg_parser.add_argument("--repl", action="store_true", default=False, help="start an interactive command line")
+        for key in sorted(self.default_parameter_space.parameters):
+            arg_parser.add_argument("--" + key.replace("_", "-"))
+        args = arg_parser.parse_args()
+        if any(experiment is not None and experiment not in self.experiment_parameter_spaces.keys() for experiment in args.experiment):
+            arg_parser.error("EXPERIMENT must be one of:\n{}".format("\n".join("\t{}".format(experiment) for experiment in self.experiment_parameter_spaces.keys())))
+        for experiment in args.experiment:
+            if experiment is None:
+                self.experiment.set_parameter_space(self.default_parameter_space)
+            else:
+                self.experiment.set_parameter_space(self.experiment_parameter_spaces[experiment])
+            arguments = dict((k, intellicast(v)) for k, v in args.__dict__.items() if k != "experiment" and v is not None)
+            self.experiment.run_with(**arguments)
+
 # callback functions
 
 def callback_print_message(mid, user_data, agent, message):

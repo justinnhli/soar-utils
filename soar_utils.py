@@ -287,39 +287,6 @@ class Ticker(SoarEnvironment):
 
 # experiment template and example
 
-class NameSpace:
-    def __init__(self, **kwargs):
-        self.update(**kwargs)
-    def __eq__(self, other):
-        if not isinstance(other, NameSpace):
-            return False
-        return vars(self) == vars(other)
-    def __str__(self):
-        return "NameSpace(" + ", ".join("{}={}".format(k, v) for k, v in sorted(self)) + ")"
-    def __contains__(self, key):
-        return key in self.__dict__
-    def __getitem__(self, key):
-        if key in self.__dict__:
-            return self.__dict__[key]
-        raise KeyError(key)
-    def __setitem__(self, key, value):
-        setattr(self, key, value)
-    def __delitem__(self, key):
-        if key in self.__dict__:
-            delattr(self, key)
-        raise KeyError(key)
-    def __iter__(self):
-        return self.__dict__.keys()
-    def update(self, **kwargs):
-        for key, value in kwargs.items():
-            self[key] = value
-    def keys(self):
-        return self.__dict__.keys()
-    def values(self):
-        return self.__dict__.values()
-    def items(self):
-        return self.__dict__.items()
-
 class ParameterSpace:
     def __init__(self, **parameters):
         self.parameter_space = NameSpace(**parameters)
@@ -488,6 +455,39 @@ def kernel_cpu_time(environment, parameters, agent):
     return float(result) * 1000
 
 # utilities
+
+class NameSpace:
+    def __init__(self, **kwargs):
+        self.update(**kwargs)
+    def __eq__(self, other):
+        if not isinstance(other, NameSpace):
+            return False
+        return vars(self) == vars(other)
+    def __str__(self):
+        return "NameSpace(" + ", ".join("{}={}".format(k, v) for k, v in sorted(self)) + ")"
+    def __contains__(self, key):
+        return key in self.__dict__
+    def __getitem__(self, key):
+        if key in self.__dict__:
+            return self.__dict__[key]
+        raise KeyError(key)
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+    def __delitem__(self, key):
+        if key in self.__dict__:
+            delattr(self, key)
+        raise KeyError(key)
+    def __iter__(self):
+        return self.__dict__.keys()
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            self[key] = value
+    def keys(self):
+        return self.__dict__.keys()
+    def values(self):
+        return self.__dict__.values()
+    def items(self):
+        return self.__dict__.items()
 
 def intellicast(string):
     try:

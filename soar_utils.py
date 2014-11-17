@@ -6,7 +6,7 @@ from ast import literal_eval
 from contextlib import contextmanager
 from copy import deepcopy
 from imp import load_module
-from inspect import signature
+from inspect import Parameter, signature
 from itertools import product
 from os.path import exists, join
 from types import GeneratorType
@@ -503,6 +503,9 @@ def intellicast(string):
     except ValueError:
         pass
     return string
+
+def positional_arguments(fn):
+    return tuple((name, parameter) for name, parameter in signature(fn).parameter.items() if name != "self" and parameter.default != Parameter.empty)
 
 def main():
     with create_agent() as agent:

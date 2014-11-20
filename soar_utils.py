@@ -354,7 +354,7 @@ class SoarExperiment:
             self.environment_instance = environment_class(agent, *self.linearize_parameters())
             self.agent.unregister_for_run_event(self.environment_instance.output_event_id)
         def linearize_parameters(self):
-            return tuple(self.parameters[key] for key in positional_arguments(self.environment_class.__init__))
+            return tuple(self.parameters[key] for key, parameter in positional_arguments(self.environment_class.__init__) if key != "agent")
         def initialize_io(self):
             params_wme = self.add_wme(self.agent.input_link, "parameters")
             for key in self.parameters.keys():
@@ -372,8 +372,8 @@ class SoarExperiment:
             self.parameter_space = parameter_space
         self.prerun_procedures = set()
     def set_parameter_space(self, parameter_space):
-        missing_arguments = set(dict(positional_arguments(self.environment_class.__init__)).keys()) - set(parameter_space.parameters)
-        assert len(missing_arguments) == 0, "missing arguments: {}".format(" ".join(sorted(missing_arguments)))
+        missing_arguments = set(dict(positional_arguments(self.environment_class)).keys()) - set(parameter_space.parameters)
+        assert len(missing_arguments) == 1, "missing arguments: {}".format(" ".join(sorted(missing_arguments)))
         self.parameter_space = parameter_space
     def register_prerun_procedure(self, f):
         self.prerun_procedures.add(f)
@@ -532,7 +532,7 @@ def intellicast(string):
     return string
 
 def positional_arguments(fn):
-    return tuple((name, parameter) for name, parameter in signature(fn).parameter.items() if name != "self" and parameter.default != Parameter.empty)
+    return tuple((name, parameter) for name, parameter in signature(fn).parameters.items() if name != "self" and parameter.default == Parameter.empty)
 
 def main():
     with create_agent() as agent:

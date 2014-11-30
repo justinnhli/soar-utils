@@ -491,7 +491,7 @@ class NameSpace:
             return False
         return vars(self) == vars(other)
     def __str__(self):
-        return "NameSpace(" + ", ".join("{}={}".format(k, v) for k, v in sorted(self)) + ")"
+        return "NameSpace(" + ", ".join("{}={}".format(k, v) for k, v in sorted(self.items())) + ")"
     def __contains__(self, key):
         return key in self.__dict__
     def __getitem__(self, key):

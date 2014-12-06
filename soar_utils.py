@@ -432,7 +432,7 @@ class ExperimentsCLI:
         args = arg_parser.parse_args()
         if any(experiment is not None and experiment not in self.experiment_parameter_spaces.keys() for experiment in args.experiment):
             arg_parser.error("EXPERIMENT must be one of:\n{}".format("\n".join("\t{}".format(experiment) for experiment in self.experiment_parameter_spaces.keys())))
-        arguments = dict((k, intellicast(v)) for k, v in args.__dict__.items() if k not in ("experiment", "repl", "print_parameter_space") and v is not None)
+        arguments = dict((k, intellicast(v)) for k, v in args.__dict__.items() if k not in ("experiment", "print_parameter_space") and v is not None)
         if args.print_parameter_space:
             for experiment in args.experiment:
                 if experiment is None:

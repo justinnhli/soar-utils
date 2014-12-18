@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from imp import load_module
 from inspect import Parameter, signature
-from itertools import product
+from itertools import chain, product
 from os.path import exists, join
 from types import GeneratorType
 import re
@@ -291,6 +291,7 @@ class ParameterSpace:
     def __init__(self, **parameters):
         self.parameter_space = NameSpace(**parameters)
         self.filters = set()
+        self.dependent_functions = {}
         self._repair_parameter_space()
     def _repair_parameter_space(self):
         non_list_keys = (k for k, v in self.parameter_space.items() if not isinstance(v, tuple))
@@ -311,12 +312,17 @@ class ParameterSpace:
     def variable_parameters(self):
         return tuple(k for k, v in self.parameter_space.items() if len(v) > 1)
     @property
+    def dependent_parameters(self):
+        return tuple(self.dependent_functions.keys())
+    @property
     def constant_parameters(self):
         return tuple(k for k, v in self.parameter_space.items() if len(v) == 1)
     def get_parameter_values(self, parameter):
         return self.parameter_space[parameter]
     def add_filter(self, fn):
         self.filters.add(fn)
+    def add_dependent_parameter(self, name, fn):
+        self.dependent_functions[name] = fn
     def factorize_parameters(self, **defaults):
         self.add_filter((lambda p: sum((1 if key in p and p[key] != value else 0) for key, value in defaults.items()) <= 1))
     def add_if_then_filter(self, antecedent, consequent):
@@ -327,21 +333,9 @@ class ParameterSpace:
     def permutations(self):
         keys = sorted(self.parameter_space.keys())
         for values in product(*(self.parameter_space[key] for key in keys)):
-            original = dict(zip(keys, values))
-            modified = {}
-            changed = True
-            while changed:
-                changed = False
-                for k, v in original.items():
-                    if isinstance(v, str):
-                        replaced_v = v.format(**original)
-                        if replaced_v != v:
-                            changed = True
-                        modified[k] = replaced_v
-                    else:
-                        modified[k] = v
-                original, modified = modified, {}
-            parameters = NameSpace(**original)
+            parameters = NameSpace(**dict(zip(keys, values)))
+            for name, fn in self.dependent_functions.items():
+                parameters[name] = fn(parameters)
             if all(fn(parameters) for fn in self.filters):
                 yield parameters
 
@@ -372,8 +366,6 @@ class SoarExperiment:
             self.parameter_space = parameter_space
         self.prerun_procedures = set()
     def set_parameter_space(self, parameter_space):
-        missing_arguments = set(dict(positional_arguments(self.environment_class)).keys()) - set(parameter_space.parameters)
-        assert len(missing_arguments) == 1, "missing arguments: {}".format(" ".join(sorted(missing_arguments)))
         self.parameter_space = parameter_space
     def register_prerun_procedure(self, f):
         self.prerun_procedures.add(f)
@@ -382,8 +374,10 @@ class SoarExperiment:
     def run_with(self, repl=False, **updates):
         parameter_space = self.parameter_space.clone()
         parameter_space.fix_parameters(**updates)
-        report_ordering = sorted(parameter_space.variable_parameters) + sorted(parameter_space.constant_parameters) + sorted(self.reporters.keys()) # FIXME hack
+        report_ordering = sorted(parameter_space.variable_parameters) + sorted(parameter_space.dependent_parameters) + sorted(parameter_space.constant_parameters) + sorted(self.reporters.keys()) # FIXME hack
         for parameters in parameter_space.permutations():
+            missing_arguments = set(dict(positional_arguments(self.environment_class)).keys()) - set(parameters.__dict__.keys())
+            assert len(missing_arguments) == 1, "missing arguments: {}".format(" ".join(sorted(missing_arguments)))
             self.run(parameters, report_ordering, repl=repl)
     def run(self, parameters, report_ordering, repl=False):
         report = {}
@@ -438,12 +432,12 @@ class ExperimentsCLI:
                 if experiment is None:
                     pspace = self.default_parameter_space.clone()
                     pspace.fix_parameters(**arguments)
-                    print("\n".join(" ".join("{}={}".format(k, v) for k, v in sorted(space.items()) if k in pspace.variable_parameters) for space in pspace.permutations()))
+                    print("\n".join(" ".join("{}={}".format(k, v) for k, v in sorted(space.items()) if k in chain(pspace.variable_parameters, pspace.dependent_parameters)) for space in pspace.permutations()))
                 else:
                     for experiment in args.experiment:
                         pspace = self.experiment_parameter_spaces[experiment].clone()
                         pspace.fix_parameters(**arguments)
-                        print("\n".join(" ".join("{}={}".format(k, v) for k, v in sorted(space.items()) if k in pspace.variable_parameters) for space in pspace.permutations()))
+                        print("\n".join(" ".join("{}={}".format(k, v) for k, v in sorted(space.items()) if k in chain(pspace.variable_parameters, pspace.dependent_parameters)) for space in pspace.permutations()))
         else:
             for experiment in args.experiment:
                 if experiment is None:

@@ -398,7 +398,7 @@ class SoarExperiment:
                 agent.execute_command_line("run")
             for name, reporter in self.reporters.items():
                 report[name] = reporter(environment.environment_instance, parameters, agent)
-        print(" ".join("{}={}".format(k, report[k]) for k in report_ordering))
+        print(to_literal_str(report))
     def cli(self):
         arg_parser = ArgumentParser()
         arg_parser.add_argument("--repl", action="store_true", default=False, help="start an interactive command line")
@@ -522,6 +522,24 @@ class NameSpace:
         return self.__dict__.values()
     def items(self):
         return self.__dict__.items()
+
+def to_literal_str(obj):
+    if obj is None:
+        return "None"
+    elif type(obj) in (int, float):
+        return str(obj)
+    if type(obj) == str:
+        return '"{}"'.format(obj.replace('"', '\\"'))
+    elif type(obj) == list:
+        return "[{}]".format(", ".join(to_literal_str(o) for o in obj))
+    elif type(obj) == dict:
+        return "{{{}}}".format(", ".join("{}:{}".format(to_literal_str(key), to_literal_str(value)) for key, value in obj.items()))
+    elif type(obj) == set:
+        return "{{{}}}".format(", ".join(to_literal_str(e) for e in obj))
+    elif hasattr(obj, "__iter__"):
+        return "({})".format(", ".join(to_literal_str(o) for o in obj))
+    else:
+        raise ValueError("Unknown type {}".format(type(obj)))
 
 def intellicast(string):
     try:

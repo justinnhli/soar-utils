@@ -475,10 +475,10 @@ def report_data_wrapper(param_map, domain, reporters, condition=None):
 # common reporters
 
 def num_decisions(environment, parameters, agent):
-    return re.sub("^.*\n([0-9]+) decisions.*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL)
+    return float(re.sub("^.*\n([0-9]+) decisions.*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL))
 
 def avg_decision_time(environment, parameters, agent):
-    return re.sub(r".*\(([0-9.]+) msec/decision.*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL)
+    return float(re.sub(r".*\(([0-9.]+) msec/decision.*", r"\1", agent.execute_command_line("stats"), flags=re.DOTALL))
 
 def max_decision_time(environment, parameters, agent):
     result = re.sub(r".*  Time \(sec\) *([0-9.]+).*", r"\1", agent.execute_command_line("stats -M"), flags=re.DOTALL)
